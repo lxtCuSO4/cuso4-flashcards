@@ -6,6 +6,8 @@ class ImportReport {
     required this.media,
     this.skipped = 0,
     this.skippedReasons = const {},
+    this.missingMedia = 0,
+    this.unsupportedMedia = 0,
   });
   final int decks;
   final int notes;
@@ -13,4 +15,6 @@ class ImportReport {
   final int media;
   final int skipped;
   final Map<String, int> skippedReasons;
+  final int missingMedia;
+  final int unsupportedMedia;
 }

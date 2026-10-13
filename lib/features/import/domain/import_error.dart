@@ -4,6 +4,7 @@ enum ImportErrorCode {
   unsupportedCollectionVersion,
   missingCollection,
   invalidMediaManifest,
+  cancelled,
   transactionFailed,
 }
 

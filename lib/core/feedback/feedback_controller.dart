@@ -1,8 +1,24 @@
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 enum FeedbackStrength { strong, gentle, off }
 
 enum FeedbackKind { selection, lightImpact, mediumImpact, error }
+
+class FeedbackScope extends InheritedWidget {
+  const FeedbackScope({
+    super.key,
+    required this.controller,
+    required super.child,
+  });
+  final FeedbackController controller;
+  static FeedbackController of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<FeedbackScope>()?.controller ??
+      const FeedbackController();
+  @override
+  bool updateShouldNotify(FeedbackScope oldWidget) =>
+      controller.strength != oldWidget.controller.strength;
+}
 
 abstract interface class FeedbackPlatform {
   Future<void> perform(FeedbackKind kind);

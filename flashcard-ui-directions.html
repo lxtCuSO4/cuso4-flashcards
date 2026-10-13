@@ -1,0 +1,150 @@
+<div id="flashcard-directions" class="viz-dotted-background">
+  <style>
+    #flashcard-directions { padding: 8px 0 54px; }
+    #flashcard-directions * { box-sizing: border-box; }
+    #flashcard-directions .direction-stage { min-height: 686px; display: grid; align-content: start; gap: 18px; }
+    #flashcard-directions .direction-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; padding: 0 4px; }
+    #flashcard-directions .direction-copy h2 { margin: 0 0 4px; font-weight: 500; }
+    #flashcard-directions .direction-copy p { margin: 0; color: var(--muted-foreground); }
+    #flashcard-directions .direction-action { border: 0; border-radius: 999px; padding: 10px 16px; font: inherit; font-weight: 500; color: #fff; background: #242520; }
+    #flashcard-directions .direction-action[aria-pressed="true"] { background: #28785e; }
+    #flashcard-directions .phones { display: grid; grid-template-columns: repeat(2, minmax(0, 270px)); justify-content: center; gap: 24px; }
+    #flashcard-directions .phone { width: 100%; height: 600px; border-radius: 34px; padding: 10px; box-shadow: 0 24px 60px rgba(30,30,25,.16); }
+    #flashcard-directions .screen { height: 100%; border-radius: 27px; overflow: hidden; position: relative; display: flex; flex-direction: column; font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif; }
+    #flashcard-directions .status { height: 30px; padding: 8px 17px 0; display: flex; justify-content: space-between; font-size: 11px; font-weight: 500; }
+    #flashcard-directions .topbar { padding: 14px 18px 10px; display: flex; align-items: center; justify-content: space-between; }
+    #flashcard-directions .topbar h3 { margin: 0; font-size: 22px; font-weight: 500; letter-spacing: -.5px; }
+    #flashcard-directions .icon-button { width: 36px; height: 36px; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: inherit; }
+    #flashcard-directions .content { flex: 1; padding: 8px 18px 84px; overflow: hidden; }
+    #flashcard-directions .bottom-nav { position: absolute; inset: auto 12px 12px; height: 60px; border-radius: 22px; display: grid; grid-template-columns: repeat(4, 1fr); align-items: center; }
+    #flashcard-directions .nav-item { display: grid; place-items: center; gap: 3px; font-size: 9px; }
+    #flashcard-directions .nav-item svg { width: 18px; height: 18px; }
+    #flashcard-directions .review-main { flex: 1; display: flex; flex-direction: column; padding: 8px 18px 18px; }
+    #flashcard-directions .progress-line { height: 4px; border-radius: 99px; overflow: hidden; }
+    #flashcard-directions .progress-line span { display: block; width: 42%; height: 100%; }
+    #flashcard-directions .review-card { flex: 1; margin: 18px 0 14px; display: grid; place-items: center; text-align: center; padding: 28px; }
+    #flashcard-directions .review-card .eyebrow { font-size: 11px; letter-spacing: .12em; margin-bottom: 18px; }
+    #flashcard-directions .review-card strong { display: block; font-size: 28px; line-height: 1.35; font-weight: 500; }
+    #flashcard-directions .review-card p { margin: 18px 0 0; font-size: 13px; line-height: 1.7; opacity: .72; }
+    #flashcard-directions .answer-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    #flashcard-directions .answer { min-height: 52px; border: 0; border-radius: 15px; font: inherit; font-size: 11px; }
+    #flashcard-directions .answer b { display: block; font-size: 13px; margin-bottom: 2px; }
+
+    #flashcard-directions .warm .phone { background: #25251f; }
+    #flashcard-directions .warm .screen { color: #2d3028; background: #f4f0e5; }
+    #flashcard-directions .warm .greeting { color: #77796c; font-size: 12px; margin-bottom: 5px; }
+    #flashcard-directions .warm .hero { margin: 4px 0 20px; padding: 20px; border-radius: 26px; background: #dfe8d3; position: relative; overflow: hidden; }
+    #flashcard-directions .warm .hero::after { content: ""; position: absolute; width: 92px; height: 92px; border-radius: 50%; background: rgba(255,255,255,.35); right: -22px; top: -20px; }
+    #flashcard-directions .warm .hero-label { font-size: 12px; color: #65705c; }
+    #flashcard-directions .warm .hero-number { font-family: Georgia, serif; font-size: 42px; margin: 7px 0 16px; }
+    #flashcard-directions .warm .hero button { border: 0; border-radius: 99px; padding: 9px 14px; background: #334c3c; color: #fff; font: inherit; font-size: 12px; }
+    #flashcard-directions .warm .section-label { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; }
+    #flashcard-directions .warm .deck { padding: 15px 16px; border-radius: 18px; background: rgba(255,255,255,.63); margin-bottom: 9px; display: grid; grid-template-columns: 38px 1fr auto; align-items: center; gap: 12px; }
+    #flashcard-directions .warm .deck-icon { width: 38px; height: 38px; border-radius: 13px; display: grid; place-items: center; background: #e8d9c3; }
+    #flashcard-directions .warm .deck b { font-size: 13px; font-weight: 500; }
+    #flashcard-directions .warm .deck small { display: block; color: #88887d; margin-top: 3px; }
+    #flashcard-directions .warm .deck-count { font-family: Georgia, serif; font-size: 18px; }
+    #flashcard-directions .warm .bottom-nav { background: rgba(255,255,255,.88); box-shadow: 0 8px 24px rgba(55,55,40,.11); }
+    #flashcard-directions .warm .nav-item.active { color: #2f634c; }
+    #flashcard-directions .warm .progress-line { background: #ded9cc; }
+    #flashcard-directions .warm .progress-line span { background: #6e9278; }
+    #flashcard-directions .warm .review-card { border-radius: 28px; background: #fffdf7; box-shadow: 0 18px 45px rgba(56,54,43,.10); }
+    #flashcard-directions .warm .review-card .eyebrow { color: #7e8d72; }
+    #flashcard-directions .warm .answer { color: #383a33; background: #e9e4d9; }
+    #flashcard-directions .warm .answer.good { color: #fff; background: #527860; }
+
+    #flashcard-directions .efficient .phone { background: #1d2229; }
+    #flashcard-directions .efficient .screen { color: #111820; background: #f3f6f8; }
+    #flashcard-directions .efficient .topbar { border-bottom: 1px solid #d9e0e5; }
+    #flashcard-directions .efficient .summary-strip { display: grid; grid-template-columns: repeat(3,1fr); margin: 4px 0 14px; border: 1px solid #d7dfe5; border-radius: 13px; overflow: hidden; background: #fff; }
+    #flashcard-directions .efficient .summary-cell { padding: 13px 8px; text-align: center; border-right: 1px solid #d7dfe5; }
+    #flashcard-directions .efficient .summary-cell:last-child { border: 0; }
+    #flashcard-directions .efficient .summary-cell b { display: block; font-size: 20px; }
+    #flashcard-directions .efficient .summary-cell small { color: #657381; }
+    #flashcard-directions .efficient .quick-start { width: 100%; border: 0; border-radius: 13px; padding: 13px; background: #1769aa; color: white; font: inherit; font-weight: 500; margin-bottom: 16px; }
+    #flashcard-directions .efficient .deck { padding: 13px 2px; border-bottom: 1px solid #dce2e7; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    #flashcard-directions .efficient .deck b { font-size: 13px; }
+    #flashcard-directions .efficient .deck small { display: block; color: #667583; margin-top: 4px; }
+    #flashcard-directions .efficient .counts { display: flex; gap: 5px; align-items: center; }
+    #flashcard-directions .efficient .count { min-width: 25px; padding: 5px 6px; border-radius: 6px; text-align: center; font-size: 10px; background: #dcebf7; color: #155986; }
+    #flashcard-directions .efficient .count.review { background: #e8e2f2; color: #624b89; }
+    #flashcard-directions .efficient .bottom-nav { background: #fff; border: 1px solid #d7dfe5; border-radius: 16px; }
+    #flashcard-directions .efficient .nav-item.active { color: #1769aa; }
+    #flashcard-directions .efficient .progress-line { background: #d7dfe5; }
+    #flashcard-directions .efficient .progress-line span { background: #1769aa; }
+    #flashcard-directions .efficient .review-card { border: 1px solid #d8e0e6; border-radius: 14px; background: #fff; }
+    #flashcard-directions .efficient .review-card .eyebrow { color: #1769aa; }
+    #flashcard-directions .efficient .answer { border-radius: 10px; color: #27313b; background: #e2e7eb; }
+    #flashcard-directions .efficient .answer.good { color: #fff; background: #1769aa; }
+
+    #flashcard-directions .balanced .phone { background: #1e2522; }
+    #flashcard-directions .balanced .screen { color: #202724; background: #eef3ef; }
+    #flashcard-directions .balanced .topbar h3 { font-family: Georgia, "Songti SC", serif; }
+    #flashcard-directions .balanced .focus-ring { width: 166px; height: 166px; border-radius: 50%; margin: 4px auto 17px; display: grid; place-items: center; background: conic-gradient(#3a8067 0 63%, #d8e1dc 63% 100%); position: relative; }
+    #flashcard-directions .balanced .focus-ring::before { content: ""; position: absolute; inset: 10px; border-radius: 50%; background: #eef3ef; }
+    #flashcard-directions .balanced .focus-ring div { z-index: 1; text-align: center; }
+    #flashcard-directions .balanced .focus-ring b { display: block; font-family: Georgia, serif; font-size: 38px; font-weight: 400; }
+    #flashcard-directions .balanced .focus-ring small { color: #66736d; }
+    #flashcard-directions .balanced .start { display: block; margin: 0 auto 20px; border: 0; border-radius: 16px; padding: 12px 25px; color: #fff; background: #283f35; font: inherit; font-weight: 500; }
+    #flashcard-directions .balanced .deck { padding: 14px 15px; border-radius: 17px; background: #fff; margin-bottom: 9px; display: grid; grid-template-columns: 1fr auto; align-items: center; box-shadow: 0 8px 22px rgba(39,58,49,.06); }
+    #flashcard-directions .balanced .deck b { font-size: 13px; }
+    #flashcard-directions .balanced .deck small { display: block; color: #738079; margin-top: 3px; }
+    #flashcard-directions .balanced .deck-progress { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; background: #e6eee9; color: #34705a; font-size: 11px; }
+    #flashcard-directions .balanced .bottom-nav { background: #263a31; color: #aebdb5; }
+    #flashcard-directions .balanced .nav-item.active { color: #fff; }
+    #flashcard-directions .balanced .progress-line { background: #d2dcd6; }
+    #flashcard-directions .balanced .progress-line span { background: #2f725a; }
+    #flashcard-directions .balanced .review-card { border-radius: 22px; color: #e9f1ec; background: #263a31; box-shadow: 0 20px 48px rgba(31,53,43,.18); }
+    #flashcard-directions .balanced .review-card .eyebrow { color: #8fbca7; }
+    #flashcard-directions .balanced .answer { color: #344039; background: #dbe3de; }
+    #flashcard-directions .balanced .answer.good { color: #fff; background: #2f725a; }
+    #flashcard-directions .selection-note { min-height: 24px; text-align: center; color: var(--muted-foreground); }
+    @media (max-width: 640px) {
+      #flashcard-directions .direction-stage { min-height: 1270px; }
+      #flashcard-directions .direction-heading { align-items: start; flex-direction: column; }
+      #flashcard-directions .phones { grid-template-columns: minmax(0, 270px); }
+    }
+  </style>
+  <div class="viz-carousel" aria-label="闪卡应用视觉方向" data-previous-label="上一种" data-next-label="下一种">
+    <section class="direction-stage warm" data-variant="温润沉浸" aria-label="温润沉浸设计方向">
+      <div class="direction-heading"><div class="direction-copy"><h2>温润沉浸</h2><p>低饱和、留白与轻柔卡片，让每日复习更安静。</p></div><button class="direction-action cursor-interaction" type="button" data-choice="温润沉浸">选择此方向</button></div>
+      <div class="phones">
+        <div class="phone"><div class="screen"><div class="status"><span>9:41</span><span>● ● ▰</span></div><div class="topbar"><div><div class="greeting">早上好，继续保持</div><h3>今日学习</h3></div><button class="icon-button" aria-label="搜索"><i data-lucide="search"></i></button></div><div class="content"><div class="hero"><div class="hero-label">今天还剩</div><div class="hero-number">36</div><button>开始复习</button></div><div class="section-label"><b>我的牌组</b><span>全部</span></div><div class="deck"><div class="deck-icon">文</div><div><b>日语 N2</b><small>今日 18 · 共 682</small></div><div class="deck-count">18</div></div><div class="deck"><div class="deck-icon">医</div><div><b>医学词汇</b><small>今日 12 · 共 421</small></div><div class="deck-count">12</div></div></div><div class="bottom-nav"><div class="nav-item active"><i data-lucide="house"></i><span>学习</span></div><div class="nav-item"><i data-lucide="layers-3"></i><span>牌组</span></div><div class="nav-item"><i data-lucide="calendar-days"></i><span>日历</span></div><div class="nav-item"><i data-lucide="user-round"></i><span>我的</span></div></div></div></div>
+        <div class="phone"><div class="screen"><div class="status"><span>9:41</span><span>● ● ▰</span></div><div class="topbar"><button class="icon-button" aria-label="返回"><i data-lucide="arrow-left"></i></button><span>日语 N2 · 12 / 36</span><button class="icon-button" aria-label="更多"><i data-lucide="more-horizontal"></i></button></div><div class="review-main"><div class="progress-line"><span></span></div><div class="review-card"><div><div class="eyebrow">VOCABULARY</div><strong>懐かしい</strong><p>点击卡片显示答案</p></div></div><div class="answer-row"><button class="answer"><b>重来</b>&lt;1分</button><button class="answer"><b>困难</b>6分</button><button class="answer good"><b>良好</b>1天</button><button class="answer"><b>简单</b>4天</button></div></div></div></div>
+      </div>
+    </section>
+    <section class="direction-stage efficient" data-variant="高效工具" aria-label="高效工具设计方向" hidden>
+      <div class="direction-heading"><div class="direction-copy"><h2>高效工具</h2><p>更高信息密度和明确数字，适合重度 Anki 用户。</p></div><button class="direction-action cursor-interaction" type="button" data-choice="高效工具">选择此方向</button></div>
+      <div class="phones">
+        <div class="phone"><div class="screen"><div class="status"><span>9:41</span><span>● ● ▰</span></div><div class="topbar"><h3>牌组</h3><button class="icon-button" aria-label="添加"><i data-lucide="plus"></i></button></div><div class="content"><div class="summary-strip"><div class="summary-cell"><b>36</b><small>待复习</small></div><div class="summary-cell"><b>14</b><small>新卡</small></div><div class="summary-cell"><b>12m</b><small>预计</small></div></div><button class="quick-start">开始今日学习</button><div class="deck"><div><b>日语 N2</b><small>682 张 · 上次学习 2 小时前</small></div><div class="counts"><span class="count">12</span><span class="count review">6</span></div></div><div class="deck"><div><b>医学词汇</b><small>421 张 · 上次学习 昨天</small></div><div class="counts"><span class="count">5</span><span class="count review">7</span></div></div><div class="deck"><div><b>计算机基础</b><small>236 张 · 上次学习 3 天前</small></div><div class="counts"><span class="count">8</span><span class="count review">4</span></div></div></div><div class="bottom-nav"><div class="nav-item active"><i data-lucide="layers-3"></i><span>牌组</span></div><div class="nav-item"><i data-lucide="play"></i><span>学习</span></div><div class="nav-item"><i data-lucide="chart-no-axes-column"></i><span>统计</span></div><div class="nav-item"><i data-lucide="settings"></i><span>设置</span></div></div></div></div>
+        <div class="phone"><div class="screen"><div class="status"><span>9:41</span><span>● ● ▰</span></div><div class="topbar"><button class="icon-button" aria-label="返回"><i data-lucide="x"></i></button><span>12 / 36 · 03:42</span><button class="icon-button" aria-label="标记"><i data-lucide="star"></i></button></div><div class="review-main"><div class="progress-line"><span></span></div><div class="review-card"><div><div class="eyebrow">日语 N2 / 词汇</div><strong>懐かしい</strong><p>点击或向上滑动显示答案</p></div></div><div class="answer-row"><button class="answer"><b>重来</b>&lt;1分</button><button class="answer"><b>困难</b>6分</button><button class="answer good"><b>良好</b>1天</button><button class="answer"><b>简单</b>4天</button></div></div></div></div>
+      </div>
+    </section>
+    <section class="direction-stage balanced" data-variant="专注融合" aria-label="专注融合设计方向" hidden>
+      <div class="direction-heading"><div class="direction-copy"><h2>专注融合</h2><p>首页温润克制，管理信息清晰；兼顾仪式感与效率。</p></div><button class="direction-action cursor-interaction" type="button" data-choice="专注融合">选择此方向</button></div>
+      <div class="phones">
+        <div class="phone"><div class="screen"><div class="status"><span>9:41</span><span>● ● ▰</span></div><div class="topbar"><h3>拾忆</h3><button class="icon-button" aria-label="搜索"><i data-lucide="search"></i></button></div><div class="content"><div class="focus-ring"><div><b>36</b><small>今日待学</small></div></div><button class="start">进入专注学习</button><div class="deck"><div><b>日语 N2</b><small>18 待学 · 连续 21 天</small></div><div class="deck-progress">72%</div></div><div class="deck"><div><b>医学词汇</b><small>12 待学 · 连续 8 天</small></div><div class="deck-progress">48%</div></div></div><div class="bottom-nav"><div class="nav-item active"><i data-lucide="sparkles"></i><span>今日</span></div><div class="nav-item"><i data-lucide="layers-3"></i><span>牌组</span></div><div class="nav-item"><i data-lucide="calendar-days"></i><span>记录</span></div><div class="nav-item"><i data-lucide="user-round"></i><span>我的</span></div></div></div></div>
+        <div class="phone"><div class="screen"><div class="status"><span>9:41</span><span>● ● ▰</span></div><div class="topbar"><button class="icon-button" aria-label="退出"><i data-lucide="x"></i></button><span>保持专注 · 12 / 36</span><button class="icon-button" aria-label="收藏"><i data-lucide="bookmark"></i></button></div><div class="review-main"><div class="progress-line"><span></span></div><div class="review-card"><div><div class="eyebrow">日语 N2</div><strong>懐かしい</strong><p>令人怀念的；眷恋往事的<br>なつかしい記憶</p></div></div><div class="answer-row"><button class="answer"><b>重来</b>&lt;1分</button><button class="answer"><b>困难</b>6分</button><button class="answer good"><b>良好</b>1天</button><button class="answer"><b>简单</b>4天</button></div></div></div></div>
+      </div>
+    </section>
+  </div>
+  <div class="selection-note" aria-live="polite">可用底部切换三种方向，再点击“选择此方向”。</div>
+  <script>
+    (() => {
+      const root = document.getElementById('flashcard-directions');
+      const note = root.querySelector('.selection-note');
+      const buttons = [...root.querySelectorAll('[data-choice]')];
+      const restore = (choice) => {
+        buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.choice === choice)));
+        if (choice) note.textContent = '已选择「' + choice + '」。你也可以继续切换比较。';
+      };
+      buttons.forEach(button => button.addEventListener('click', () => {
+        const choice = button.dataset.choice;
+        restore(choice);
+        if (window.openai?.setWidgetState) window.openai.setWidgetState({ modelContent: { visualDirection: choice }, privateContent: null }).catch(() => {});
+      }));
+      restore(window.openai?.widgetState?.modelContent?.visualDirection || '');
+      window.addEventListener('openai:set_globals', event => restore(event.detail?.globals?.widgetState?.modelContent?.visualDirection || ''));
+    })();
+  </script>
+</div>

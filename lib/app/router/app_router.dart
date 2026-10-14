@@ -10,11 +10,25 @@ import '../../features/records/presentation/records_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/import/presentation/import_page.dart';
 import '../../features/study/presentation/study_page.dart';
+import '../../features/favorites/presentation/favorites_page.dart';
+import '../../features/favorites/presentation/favorite_preview_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
       GoRoute(path: '/import', builder: (_, _) => const ImportPage()),
+      GoRoute(
+        path: '/favorites',
+        builder: (_, _) => const FavoritesPage(),
+        routes: [
+          GoRoute(
+            path: ':cardId',
+            builder: (_, state) => FavoritePreviewPage(
+              cardId: int.parse(state.pathParameters['cardId']!),
+            ),
+          ),
+        ],
+      ),
       GoRoute(
         path: '/study',
         builder: (_, state) => StudyPage(

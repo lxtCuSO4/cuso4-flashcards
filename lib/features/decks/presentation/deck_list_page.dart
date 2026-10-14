@@ -6,11 +6,33 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/database/app_database.dart';
+import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/pressable_action.dart';
 
-class DeckListPage extends ConsumerWidget {
+class DeckListPage extends ConsumerStatefulWidget {
   const DeckListPage({super.key});
+  @override
+  ConsumerState<DeckListPage> createState() => _DeckListPageState();
+}
+
+class _DeckListPageState extends ConsumerState<DeckListPage> {
+  final _savingExpansions = <int>{};
+
+  Future<void> _toggle(StoredDeck deck, bool expanded) async {
+    if (!_savingExpansions.add(deck.id)) return;
+    setState(() {});
+    unawaited(FeedbackScope.of(context).tap());
+    try {
+      // Independent keys avoid read-modify-write races between different decks.
+      await saveSetting(ref, 'deckExpanded.${deck.id}', '${!expanded}');
+    } catch (error) {
+      if (mounted) showActionError(context, error);
+    } finally {
+      if (mounted) setState(() => _savingExpansions.remove(deck.id));
+    }
+  }
+
   Future<void> _action(
     BuildContext context,
     WidgetRef ref,
@@ -68,9 +90,11 @@ class DeckListPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final decks = ref.watch(decksProvider);
     final counts = ref.watch(cardCountsProvider).value ?? {};
+    final settings = ref.watch(settingsProvider);
+    bool isExpanded(int id) => settings.value?['deckExpanded.$id'] == 'true';
     return PageFrame(
       title: '牌组',
       subtitle: '把知识整理成小块，慢慢记牢。',
@@ -100,6 +124,16 @@ class DeckListPage extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
+          if (settings.hasError)
+            Column(
+              children: [
+                const Text('章节展开状态读取失败，请重试。'),
+                TextButton(
+                  onPressed: () => ref.invalidate(settingsProvider),
+                  child: const Text('重试读取章节状态'),
+                ),
+              ],
+            ),
           decks.when(
             data: (items) {
               if (items.isEmpty) {
@@ -134,11 +168,15 @@ class DeckListPage extends ConsumerWidget {
                   ),
                 );
               }
+              final children = <int?, List<StoredDeck>>{};
+              for (final deck in items) {
+                (children[deck.parentId] ??= []).add(deck);
+              }
               final ordered = <({StoredDeck deck, int depth})>[];
               void append(int? parent, int depth) {
-                for (final d in items.where((d) => d.parentId == parent)) {
+                for (final d in children[parent] ?? <StoredDeck>[]) {
                   ordered.add((deck: d, depth: depth));
-                  append(d.id, depth + 1);
+                  if (isExpanded(d.id)) append(d.id, depth + 1);
                 }
               }
 
@@ -147,6 +185,7 @@ class DeckListPage extends ConsumerWidget {
                 children: ordered
                     .map(
                       (entry) => Padding(
+                        key: ValueKey('deck-row-${entry.deck.id}'),
                         padding: EdgeInsets.only(
                           left: (entry.depth * 16.0).clamp(0, 48),
                           bottom: 10,
@@ -161,10 +200,52 @@ class DeckListPage extends ConsumerWidget {
                               top: 10,
                               bottom: 10,
                             ),
-                            leading: Icon(
-                              Icons.layers_outlined,
-                              color: Theme.of(context).colorScheme.secondary,
-                            ),
+                            leading: children.containsKey(entry.deck.id)
+                                ? Semantics(
+                                    expanded: isExpanded(entry.deck.id),
+                                    child: IconButton(
+                                      key: ValueKey(
+                                        'deck-toggle-${entry.deck.id}',
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 48,
+                                        minHeight: 48,
+                                      ),
+                                      tooltip:
+                                          '${isExpanded(entry.deck.id) ? '收起' : '展开'}${entry.deck.name}',
+                                      onPressed:
+                                          settings.value == null ||
+                                              _savingExpansions.contains(
+                                                entry.deck.id,
+                                              )
+                                          ? null
+                                          : () => _toggle(
+                                              entry.deck,
+                                              isExpanded(entry.deck.id),
+                                            ),
+                                      icon: AnimatedRotation(
+                                        turns: isExpanded(entry.deck.id)
+                                            ? .25
+                                            : 0,
+                                        duration:
+                                            MediaQuery.disableAnimationsOf(
+                                              context,
+                                            )
+                                            ? Duration.zero
+                                            : const Duration(milliseconds: 120),
+                                        child: const Icon(Icons.chevron_right),
+                                      ),
+                                    ),
+                                  )
+                                : SizedBox.square(
+                                    dimension: 48,
+                                    child: Icon(
+                                      Icons.layers_outlined,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .secondary,
+                                    ),
+                                  ),
                             title: Text(
                               entry.deck.name,
                               style: const TextStyle(

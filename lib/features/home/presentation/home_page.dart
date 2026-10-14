@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/widgets/page_frame.dart';
+import '../../../core/widgets/pressable_action.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -54,6 +55,11 @@ class HomePage extends ConsumerWidget {
                 ],
               ),
             ),
+          ),
+          const SizedBox(height: 24),
+          PressableAction(
+            label: '开始今日学习',
+            onPressed: total == 0 ? null : () => context.push('/study'),
           ),
           const SizedBox(height: 24),
           Text('牌组概览', style: Theme.of(context).textTheme.titleMedium),

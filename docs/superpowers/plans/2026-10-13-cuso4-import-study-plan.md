@@ -286,6 +286,8 @@ StudyRepository queries a bounded queue using indexed due fields. A rating trans
 
 ### Task 9: Build import and immersive study interfaces
 
+2026-10-15 执行检查点：导入/学习页面、媒体只读解析和本地音频控制源码已接入；完整 103 项测试通过，静态分析无问题。根据预算与工程内修改约束，音频改用 Android MediaPlayer/MethodChannel，不新增 audioplayers 依赖。APK 构建、原生 Kotlin 编译和真实设备验证待补，不能将本任务的构建/实机检查标记完成。详见 docs/development-progress.md。
+
 **Files:**
 - Create: lib/features/import/presentation/import_page.dart
 - Create: lib/features/import/presentation/import_result_page.dart

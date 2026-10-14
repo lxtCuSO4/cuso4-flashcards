@@ -6,6 +6,11 @@ import '../features/decks/data/deck_repository.dart';
 import '../features/decks/data/note_repository.dart';
 import '../features/import/application/import_controller.dart';
 import '../features/import/data/apkg_import_service.dart';
+import '../features/study/data/study_repository.dart';
+
+final studyRepositoryProvider = Provider(
+  (ref) => StudyRepository(ref.watch(databaseProvider)),
+);
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();

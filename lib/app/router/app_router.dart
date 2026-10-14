@@ -9,11 +9,18 @@ import '../../features/decks/presentation/note_editor_page.dart';
 import '../../features/records/presentation/records_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
 import '../../features/import/presentation/import_page.dart';
+import '../../features/study/presentation/study_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
       GoRoute(path: '/import', builder: (_, _) => const ImportPage()),
+      GoRoute(
+        path: '/study',
+        builder: (_, state) => StudyPage(
+          deckId: int.tryParse(state.uri.queryParameters['deckId'] ?? ''),
+        ),
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppNavigation(shell: shell),
         branches: [

@@ -8,6 +8,14 @@ import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
 
+enum MediaKind { image, audio }
+
+class LocalMedia {
+  const LocalMedia({required this.file, required this.mimeType});
+  final File file;
+  final String mimeType;
+}
+
 /// Counts each local asset once per note, regardless of repeated occurrences.
 class MediaRepository {
   MediaRepository(this.db, {this.directory});
@@ -15,6 +23,41 @@ class MediaRepository {
   final Directory? directory;
   static final _hash = RegExp(r'^media:([a-f0-9]{64})$');
   static final _sound = RegExp(r'\[sound:media:([a-f0-9]{64})\]');
+
+  /// Never turns arbitrary card URLs or filenames into filesystem access.
+  Future<LocalMedia?> resolve(String token, {required MediaKind kind}) async {
+    final match = _hash.firstMatch(token);
+    if (match == null) return null;
+    final hash = match[1]!;
+    final asset = await (db.select(
+      db.media,
+    )..where((m) => m.contentHash.equals(hash))).getSingleOrNull();
+    if (asset == null || asset.relativePath != hash) return null;
+    final allowed = kind == MediaKind.image
+        ? {'image/png', 'image/jpeg', 'image/gif', 'image/webp'}
+        : {'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4'};
+    if (!allowed.contains(asset.mimeType)) return null;
+    try {
+      final root =
+          directory ??
+          Directory(
+            p.join((await getApplicationSupportDirectory()).path, 'media'),
+          );
+      final canonicalRoot = await root.resolveSymbolicLinks();
+      final file = File(p.join(canonicalRoot, hash));
+      if (await FileSystemEntity.type(file.path, followLinks: false) !=
+          FileSystemEntityType.file) {
+        return null;
+      }
+      if (p.dirname(await file.resolveSymbolicLinks()) != canonicalRoot ||
+          await file.length() != asset.byteLength) {
+        return null;
+      }
+      return LocalMedia(file: file, mimeType: asset.mimeType);
+    } on FileSystemException {
+      return null;
+    }
+  }
 
   Set<String> references(Map<String, String> fields) {
     final result = <String>{};

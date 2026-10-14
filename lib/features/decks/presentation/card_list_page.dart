@@ -39,6 +39,11 @@ class _CardListPageState extends ConsumerState<CardListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          PressableAction(
+            label: '学习这个牌组',
+            onPressed: () => context.push('/study?deckId=${widget.deckId}'),
+          ),
+          const SizedBox(height: 16),
           TextField(
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),

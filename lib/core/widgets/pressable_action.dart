@@ -12,11 +12,13 @@ class PressableAction extends StatefulWidget {
     required this.label,
     required this.onPressed,
     this.feedbackController,
+    this.reviewFeedback = false,
   });
 
   final String label;
   final FutureOr<void> Function()? onPressed;
   final FeedbackController? feedbackController;
+  final bool reviewFeedback;
 
   @override
   State<PressableAction> createState() => _PressableActionState();
@@ -56,7 +58,10 @@ class _PressableActionState extends State<PressableAction> {
       _pressed = false;
       _pointer = null;
     });
-    unawaited((widget.feedbackController ?? FeedbackScope.of(context)).tap());
+    final feedback = widget.feedbackController ?? FeedbackScope.of(context);
+    unawaited(
+      widget.reviewFeedback ? feedback.confirmReview() : feedback.tap(),
+    );
     try {
       await action();
     } catch (error, stack) {

@@ -102,9 +102,21 @@
 - 尚无真机安装、真实文字/图片牌组导入与学习验收，不把最低版本声明视为 Android 8 真机兼容测试。音频仅通过本次 Kotlin 编译，没有专项实机播放验证。
 - 构建保留 Flutter/AGP/Kotlin 模板及依赖的弃用警告、SDK XML 版本提示；没有为消除非阻塞警告修改 SDK 或第三方 pub 源码。未上传 GitHub，未生成正式发布签名。
 
-## 下一步（构建后）
+## 2026-10-15 ARM64 release 模式体积检查点
 
-1. 用户可安装更新调试 APK，先验收文字/图片牌组的文件选择、导入、基础/填空卡、图片、显示答案、四项评分、撤销和收藏。
+- 用户认为 178 MB 过大并要求继续推进。保留完整原调试 APK，不删除应用功能；扩展本地构建脚本的 BuildMode/TargetPlatform 参数，执行 Release + android-arm64。
+- 使用既有 SDK 中 ARM64 release 的 gen_snapshot 与工程内 Gradle 缓存，启用 tree-shake-icons、R8 及资源裁剪，仅输出 ARM64 APK。保持本地测试包 versionCode=1，避免分架构自动编码造成旧调试版版本降级。
+- 本次构建通过：BUILD SUCCESSFUL in 2m 2s，180 项任务。release 自动 lintVital 检查、Dart AOT、Kotlin、R8 及打包通过；没有修改业务代码，没有重复全量测试或追加音频专项验收。
+- 新包 build/app/outputs/flutter-apk/app-arm64-v8a-release.apk：21459966 字节，约 21.5 MB（20.5 MiB），相对多架构调试包 178456534 字节减少约 88.0%。这是 release 模式和单架构共同带来的差异，不是仅删除音频或图片的效果。
+- 包中不再包含 kernel_blob.bin 和 Vulkan 图形校验库。原生库仅 arm64-v8a：libflutter.so 11747864、libapp.so 7340936、libsqlite3.so 1732360、libdartjni.so 131400 字节；图标裁剪将 Material 字体缩至 3652、Cupertino 字体缩至 848 字节。
+- aapt2 校验：包名/名称/versionName/versionCode 均与调试版一致，minSdk 26，targetSdk 36，仅 arm64-v8a，不是 debuggable。apksigner v2 验证通过；证书 SHA-256 与原调试版一致，仍是 Android Debug 测试签名，不是正式公开发布签名。
+- 新包 SHA-256：176FD113DDB9205905EAF15B1B5BC8FA4E5C833230695A25EE8C70407062900D。旧 debug APK SHA-256 未变：8A4AAC472A998A35341EFD7B75AF4057AD24B7255F1DFD23F0375A135BFDCF0F。
+- 未检测实际手机 CPU 架构、未安装真机，不能由屏幕分辨率保证 ARM64 兼容。release 的文件选择、JNI/SQLite、图片及评分还需真机验收，不能把构建通过视为运行验证。
+- 包名和测试签名一致，可尝试覆盖安装保留数据；若安装提示冲突，应先保留原应用和数据、提供提示，不要直接卸载有数据的版本。只在工程内维护构建配置/文档，没有上传 GitHub。
+
+## 下一步（体积验证后）
+
+1. 用户可优先安装较小的 ARM64 release 模式测试 APK，先确认架构兼容，再验收文字/图片牌组的文件选择、导入、基础/填空卡、图片、显示答案、四项评分、撤销和收藏；原调试包保留备用。
 2. 收集真实手机的问题并针对修正；优先文字/图片与触觉，不追加音频专项工作。新版压缩 Anki 包、正式签名和广泛机型兼容仍待补齐。
 3. 随后补学习统计、额度/保持率设置与收藏列表、日历、通知和备份恢复。
 4. 仍不上传 GitHub；公开分享前补正式签名及安卓版本/机型兼容验证。

@@ -2,6 +2,10 @@ param(
     [string]$FlutterRoot = "D:\dev\flutter",
     [string]$JavaRoot = "D:\Android\Android Studio\jbr",
     [string]$GradleExecutable = "D:\gradle-cache\wrapper\dists\gradle-9.3.1-all\9ot9r568e8zfvvd4mn8rbu1j0\gradle-9.3.1\bin\gradle.bat",
+    [ValidateSet("Debug", "Release")]
+    [string]$BuildMode = "Debug",
+    [ValidateSet("All", "android-arm64", "android-arm", "android-x64")]
+    [string]$TargetPlatform = "All",
     [switch]$Offline
 )
 
@@ -40,8 +44,20 @@ try {
         # by Kotlin's incremental cache. Keep the workaround local to this run.
         "-Pkotlin.incremental=false",
         "-Pkotlin.compiler.execution.strategy=in-process",
-        "app:assembleDebug"
+        "app:assemble$BuildMode"
     )
+    if ($TargetPlatform -ne "All") {
+        $arguments += @(
+            "-Ptarget-platform=$TargetPlatform",
+            "-Psplit-per-abi=true",
+            # Keep local test APKs on the same versionCode as the debug build.
+            "-Pforce-version-code-ignoring-abi=true"
+        )
+    }
+    if ($BuildMode -eq "Release") {
+        $arguments += @("-Ptree-shake-icons=true", "-Pshrink=true")
+        Write-Host "Release mode uses the existing Android Debug signing key. This is a test APK, not a public release."
+    }
     if ($Offline) { $arguments += "--offline" }
     & $GradleExecutable @arguments
     if ($LASTEXITCODE -ne 0) { throw "Android build failed (exit $LASTEXITCODE). Local caches are preserved for retry." }

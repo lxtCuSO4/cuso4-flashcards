@@ -12,10 +12,12 @@ import '../../features/import/presentation/import_page.dart';
 import '../../features/study/presentation/study_page.dart';
 import '../../features/favorites/presentation/favorites_page.dart';
 import '../../features/favorites/presentation/favorite_preview_page.dart';
+import '../../features/backup/presentation/backup_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
+      GoRoute(path: '/backup', builder: (_, _) => const BackupPage()),
       GoRoute(path: '/import', builder: (_, _) => const ImportPage()),
       GoRoute(
         path: '/favorites',

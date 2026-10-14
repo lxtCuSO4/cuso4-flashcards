@@ -8,16 +8,19 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import java.io.File
+import android.content.Intent
 
 class MainActivity : FlutterActivity() {
     private var player: MediaPlayer? = null
     private var audioChannel: MethodChannel? = null
     private var focus: AudioFocusRequest? = null
     private var playbackId: Int? = null
+    private var backupBridge: BackupDocumentBridge? = null
     private val audioManager by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        backupBridge = BackupDocumentBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         audioChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "com.cuso4.flashcards/audio").also { channel ->
             channel.setMethodCallHandler { call, result ->
@@ -87,9 +90,17 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        backupBridge?.dispose()
+        backupBridge = null
         stopAudio()
         audioChannel?.setMethodCallHandler(null)
         audioChannel = null
         super.onDestroy()
+    }
+
+    @Deprecated("Activity result bridge for the system document picker")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (backupBridge?.onActivityResult(requestCode, resultCode, data) == true) return
+        super.onActivityResult(requestCode, resultCode, data)
     }
 }

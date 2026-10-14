@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/widgets/page_frame.dart';
@@ -59,13 +60,20 @@ class SettingsPage extends ConsumerWidget {
                   title: Text('本地数据'),
                   subtitle: Text('数据库只保存在本机，无需登录'),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.save_outlined),
+                  title: const Text('备份与恢复'),
+                  subtitle: const Text('保存卡片、媒体和学习进度'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/backup'),
+                ),
               ],
             ),
           ),
           const SizedBox(height: 20),
           const ListTile(
             title: Text('CuSO₄闪卡 · 开发版'),
-            subtitle: Text('卡片管理已可用，导入、FSRS 学习和增强功能正在接入。'),
+            subtitle: Text('离线导入与学习，本机保存全部数据。增强功能持续完善中。'),
           ),
         ],
       ),

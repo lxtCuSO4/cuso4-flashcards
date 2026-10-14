@@ -8,6 +8,8 @@
 
 **Tech Stack:** Flutter integration_test, Drift migrations, archive, crypto, Android Gradle signing, adb, GitHub release notes or equivalent static distribution.
 
+2026-10-15 执行状态：Task 1–4 和恢复中断的启动保护已实施并产出测试 APK，具体实现调整／验证证据见 `2026-10-15-local-backup-execution.md` 与 `docs/development-progress.md`。正式签名、其余迁移／恢复覆盖和公开发布仍未完成；按用户预算约束采用集中关键验证，不沿用逐任务双重代理审查。
+
 ---
 
 ### Task 1: Define the versioned backup format

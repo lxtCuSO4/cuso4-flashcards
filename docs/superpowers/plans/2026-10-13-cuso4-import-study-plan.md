@@ -229,7 +229,7 @@ Run archive inspection and collection reading in an isolate. Persist ImportJob s
 - Create: lib/features/study/data/fsrs_scheduler.dart
 - Test: test/features/study/data/fsrs_scheduler_test.dart
 
-- [ ] **Step 1: Add FSRS and write failing contract tests**
+- [x] **Step 1: Add FSRS and write failing contract tests**
 
 Run:
 
@@ -237,7 +237,7 @@ Run:
 
 Write tests against the local Scheduler interface, not package classes. Test default desired retention 0.90, Again less than Hard less than Good less than Easy intervals, UTC due dates, deterministic output for a fixed clock, and serialization round-trip of scheduler state.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -245,11 +245,11 @@ Run:
 
 Expected: FAIL because Scheduler is not implemented.
 
-- [ ] **Step 3: Implement FsrsScheduler adapter**
+- [x] **Step 3: Implement FsrsScheduler adapter**
 
 Map local ReviewRating to the package Rating and local card state to the package card type. Keep package-specific types inside fsrs_scheduler.dart. Validate retention input between supported bounds and expose previewIntervals plus applyReview.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
     flutter test test/features/study/data/fsrs_scheduler_test.dart
     git add pubspec.yaml pubspec.lock lib/features/study test/features/study
@@ -262,11 +262,11 @@ Map local ReviewRating to the package Rating and local card state to the package
 - Create: lib/features/study/application/study_session_controller.dart
 - Test: test/features/study/application/study_session_controller_test.dart
 
-- [ ] **Step 1: Write failing session tests**
+- [x] **Step 1: Write failing session tests**
 
 Test queue order due review, learning, new; per-deck daily new limit; rating atomically updates card and inserts ReviewLog; undo restores the exact previous snapshot and removes the log; favorites do not change due dates; and midnight or timezone change does not duplicate the daily new-card count.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -274,11 +274,11 @@ Run:
 
 Expected: FAIL because study session classes do not exist.
 
-- [ ] **Step 3: Implement repository and controller**
+- [x] **Step 3: Implement repository and controller**
 
 StudyRepository queries a bounded queue using indexed due fields. A rating transaction stores before and after scheduler snapshots in ReviewLog. StudySessionController owns current card, answer visibility, interval previews, elapsed response time, rating lock, undo availability, and session completion.
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
     flutter test test/features/study
     git add lib/features/study test/features/study

@@ -29,4 +29,46 @@ class Flashcard {
   final int lapses;
   final bool isFavorite;
   final DateTime? lastReviewAtUtc;
+
+  /// Versioned UTC millisecond snapshot. Favorites live in their own table and
+  /// are deliberately excluded, so undo never changes a later favorite action.
+  Map<String, Object?> toJson() => {
+    'version': 1,
+    'id': id,
+    'noteId': noteId,
+    'clozeIndex': clozeIndex,
+    'dueAtUtc': dueAtUtc.millisecondsSinceEpoch,
+    'state': state.index,
+    'stability': stability,
+    'difficulty': difficulty,
+    'learningStep': learningStep,
+    'repetitions': repetitions,
+    'lapses': lapses,
+    'lastReviewAtUtc': lastReviewAtUtc?.millisecondsSinceEpoch,
+  };
+
+  factory Flashcard.fromJson(Map<String, dynamic> json) {
+    if (json['version'] != 1) throw const FormatException('不支持的排程快照版本');
+    return Flashcard(
+      id: json['id'] as int,
+      noteId: json['noteId'] as int,
+      clozeIndex: json['clozeIndex'] as int?,
+      dueAtUtc: DateTime.fromMillisecondsSinceEpoch(
+        json['dueAtUtc'] as int,
+        isUtc: true,
+      ),
+      state: CardState.values[json['state'] as int],
+      stability: (json['stability'] as num?)?.toDouble(),
+      difficulty: (json['difficulty'] as num?)?.toDouble(),
+      learningStep: json['learningStep'] as int,
+      repetitions: json['repetitions'] as int,
+      lapses: json['lapses'] as int,
+      lastReviewAtUtc: json['lastReviewAtUtc'] == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              json['lastReviewAtUtc'] as int,
+              isUtc: true,
+            ),
+    );
+  }
 }

@@ -1,8 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/database/app_database.dart';
+import '../core/media/media_repository.dart';
 import '../features/decks/data/deck_repository.dart';
 import '../features/decks/data/note_repository.dart';
+import '../features/import/application/import_controller.dart';
+import '../features/import/data/apkg_import_service.dart';
 
 final databaseProvider = Provider<AppDatabase>((ref) {
   final db = AppDatabase();
@@ -10,11 +13,46 @@ final databaseProvider = Provider<AppDatabase>((ref) {
   return db;
 });
 final deckRepositoryProvider = Provider(
-  (ref) => DeckRepository(ref.watch(databaseProvider)),
+  (ref) => DeckRepository(
+    ref.watch(databaseProvider),
+    mediaRepository: ref.watch(mediaRepositoryProvider),
+  ),
 );
 final noteRepositoryProvider = Provider(
-  (ref) => NoteRepository(ref.watch(databaseProvider)),
+  (ref) => NoteRepository(
+    ref.watch(databaseProvider),
+    mediaRepository: ref.watch(mediaRepositoryProvider),
+  ),
 );
+final mediaRepositoryProvider = Provider(
+  (ref) => MediaRepository(ref.watch(databaseProvider)),
+);
+final importServiceProvider = Provider(
+  (ref) => ApkgImportService(ref.watch(databaseProvider)),
+);
+final importControllerProvider = Provider((ref) {
+  final service = ref.watch(importServiceProvider);
+  final controller = ImportController(
+    (file, {required merge, required isCancelled, required onProgress}) =>
+        service.importFile(
+          file,
+          merge: merge,
+          isCancelled: isCancelled,
+          onProgress: onProgress,
+        ),
+  );
+  ref.onDispose(controller.dispose);
+  return controller;
+});
+
+Future<void> cleanUpUnusedMedia(MediaRepository repository) async {
+  try {
+    await repository.collectUnused();
+  } catch (_) {
+    // Best effort. A cleanup error must not turn a committed save into failure.
+  }
+}
+
 final decksProvider = StreamProvider(
   (ref) => ref.watch(deckRepositoryProvider).watchDeckTree(),
 );

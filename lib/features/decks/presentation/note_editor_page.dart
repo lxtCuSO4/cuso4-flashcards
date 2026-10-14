@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -114,6 +116,7 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
         }
       }
       if (!mounted) return;
+      unawaited(cleanUpUnusedMedia(repository.media));
       setState(() => _dirty = false);
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -96,9 +97,9 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                             return;
                           }
                           try {
-                            await ref
-                                .read(noteRepositoryProvider)
-                                .deleteNote(note.id);
+                            final repository = ref.read(noteRepositoryProvider);
+                            await repository.deleteNote(note.id);
+                            unawaited(cleanUpUnusedMedia(repository.media));
                           } catch (e) {
                             if (context.mounted) showActionError(context, e);
                           }

@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:cuso4_flashcards/core/database/app_database.dart';
 import 'package:cuso4_flashcards/features/import/data/apkg_import_service.dart';
 import 'package:cuso4_flashcards/features/import/domain/import_error.dart';
+import 'package:cuso4_flashcards/features/import/domain/import_progress.dart';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -25,7 +26,10 @@ void main() {
     await scratch.delete(recursive: true);
   });
 
-  Future<File> fixture({bool includeAudio = true}) async {
+  Future<File> fixture({
+    bool includeAudio = true,
+    bool unknownBasicModel = false,
+  }) async {
     final collection = File(p.join(scratch.path, 'collection.anki2'));
     final anki = sqlite3.open(collection.path);
     try {
@@ -64,7 +68,7 @@ void main() {
       ]);
       anki.execute('INSERT INTO notes VALUES (?, ?, ?, ?)', [
         10,
-        100,
+        unknownBasicModel ? 999 : 100,
         '<b>CuSO4</b><img src="salt.png">\u001f硫酸铜',
         ' chemistry ',
       ]);
@@ -171,6 +175,41 @@ void main() {
   );
 
   test(
+    'unknown models are counted as skipped rather than silently lost',
+    () async {
+      final report = await ApkgImportService(
+        db,
+        mediaDirectory: mediaDirectory,
+      ).importFile(await fixture(unknownBasicModel: true));
+      expect(report.notes, 1);
+      expect(report.skipped, 2);
+      expect(report.skippedReasons, {'unsupportedTemplate': 2});
+    },
+  );
+
+  test(
+    'new compressed collections retain a readable error across the isolate',
+    () async {
+      final archive = Archive()
+        ..addFile(ArchiveFile.string('collection.anki21b', 'unsupported'));
+      final file = File(p.join(scratch.path, 'modern.apkg'));
+      await file.writeAsBytes(ZipEncoder().encodeBytes(archive));
+      await expectLater(
+        ApkgImportService(db, mediaDirectory: mediaDirectory).importFile(file),
+        throwsA(
+          isA<ApkgImportException>().having(
+            (e) => e.code,
+            'code',
+            ImportErrorCode.unsupportedCollectionVersion,
+          ),
+        ),
+      );
+      expect((await db.select(db.importJobs).get()).single.status, 'failed');
+      expect(await db.select(db.notes).get(), isEmpty);
+    },
+  );
+
+  test(
     'repeated imports create uniquely named copies of the root deck',
     () async {
       final apkg = await fixture();
@@ -187,6 +226,10 @@ void main() {
         {'Chemistry', 'Chemistry (导入)', 'Chemistry (导入 2)'},
       );
       expect(decks.where((deck) => deck.name == 'Inorganic').length, 3);
+      expect(
+        (await db.select(db.media).get()).every((m) => m.referenceCount == 3),
+        isTrue,
+      );
     },
   );
 
@@ -205,7 +248,7 @@ void main() {
   test('database failure rolls back cards and newly moved media', () async {
     await db.select(db.decks).get();
     await db.customStatement(
-      "CREATE TRIGGER fail_media BEFORE INSERT ON media BEGIN SELECT RAISE(FAIL, 'media failure'); END",
+      "CREATE TRIGGER fail_commit BEFORE UPDATE ON import_jobs WHEN NEW.status = 'completed' BEGIN SELECT RAISE(FAIL, 'commit failure'); END",
     );
     final service = ApkgImportService(db, mediaDirectory: mediaDirectory);
     await expectLater(
@@ -230,10 +273,18 @@ void main() {
   });
 
   test('cancellation after a note write rolls back the whole import', () async {
-    var checks = 0;
+    var cancelled = false;
     final service = ApkgImportService(db, mediaDirectory: mediaDirectory);
     await expectLater(
-      service.importFile(await fixture(), isCancelled: () => ++checks == 2),
+      service.importFile(
+        await fixture(),
+        isCancelled: () => cancelled,
+        onProgress: (p) {
+          if (p.phase == ImportPhase.saving && p.completed == 1) {
+            cancelled = true;
+          }
+        },
+      ),
       throwsA(
         isA<ApkgImportException>().having(
           (error) => error.code,
@@ -254,4 +305,61 @@ void main() {
     expect(report.missingMedia, 1);
     expect(report.media, 1);
   });
+
+  test(
+    'reports real stages and persists a completed job with skip counts',
+    () async {
+      final stages = <ImportPhase>[];
+      final report = await ApkgImportService(db, mediaDirectory: mediaDirectory)
+          .importFile(
+            await fixture(),
+            onProgress: (progress) => stages.add(progress.phase),
+          );
+      expect(
+        stages.toSet(),
+        containsAll([
+          ImportPhase.extracting,
+          ImportPhase.reading,
+          ImportPhase.media,
+          ImportPhase.saving,
+        ]),
+      );
+      final job = (await db.select(db.importJobs).get()).single;
+      expect(job.status, 'completed');
+      expect(jsonDecode(job.reportJson!)['cards'], report.cards);
+      expect(
+        (await db.select(db.importJobErrors).get()).single.reason,
+        'unsupportedTemplate',
+      );
+    },
+  );
+
+  test(
+    'cancel during background parsing leaves no data or staging files',
+    () async {
+      var cancelled = false;
+      await expectLater(
+        ApkgImportService(db, mediaDirectory: mediaDirectory).importFile(
+          await fixture(),
+          isCancelled: () => cancelled,
+          onProgress: (progress) {
+            if (progress.phase == ImportPhase.reading) cancelled = true;
+          },
+        ),
+        throwsA(
+          isA<ApkgImportException>().having(
+            (e) => e.code,
+            'code',
+            ImportErrorCode.cancelled,
+          ),
+        ),
+      );
+      expect(await db.select(db.notes).get(), isEmpty);
+      expect((await db.select(db.importJobs).get()).single.status, 'cancelled');
+      expect(
+        mediaDirectory.listSync(recursive: true).whereType<File>(),
+        isEmpty,
+      );
+    },
+  );
 }

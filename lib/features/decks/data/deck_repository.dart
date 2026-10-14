@@ -1,10 +1,13 @@
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/media/media_repository.dart';
 
 class DeckRepository {
-  DeckRepository(this.db);
+  DeckRepository(this.db, {MediaRepository? mediaRepository})
+    : media = mediaRepository ?? MediaRepository(db);
   final AppDatabase db;
+  final MediaRepository media;
 
   Stream<List<StoredDeck>> watchDeckTree() =>
       (db.select(db.decks)..orderBy([(d) => OrderingTerm.asc(d.name)])).watch();
@@ -49,6 +52,24 @@ class DeckRepository {
 
   Future<void> deleteDeck(int id) => db.transaction(() async {
     await _require(id);
+    final tree = await db.select(db.decks).get();
+    final descendants = <int>{id};
+    var previousCount = 0;
+    while (previousCount != descendants.length) {
+      previousCount = descendants.length;
+      descendants.addAll(
+        tree.where((d) => descendants.contains(d.parentId)).map((d) => d.id),
+      );
+    }
+    final notes = await (db.select(
+      db.notes,
+    )..where((n) => n.deckId.isIn(descendants))).get();
+    for (final note in notes) {
+      await media.replaceReferences(
+        media.fieldsFromJson(note.fieldsJson),
+        const {},
+      );
+    }
     await (db.delete(db.decks)..where((d) => d.id.equals(id))).go();
   });
 

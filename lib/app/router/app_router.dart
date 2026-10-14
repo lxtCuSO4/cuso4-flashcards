@@ -8,10 +8,12 @@ import '../../features/decks/presentation/card_list_page.dart';
 import '../../features/decks/presentation/note_editor_page.dart';
 import '../../features/records/presentation/records_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../features/import/presentation/import_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
+      GoRoute(path: '/import', builder: (_, _) => const ImportPage()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => AppNavigation(shell: shell),
         branches: [

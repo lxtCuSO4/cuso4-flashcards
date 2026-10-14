@@ -124,13 +124,12 @@ class AnkiCollectionReader {
       final notes = <AnkiNote>[];
       for (final row in db.select('SELECT id, mid, flds, tags FROM notes')) {
         final model = modelById[row['mid']];
-        if (model == null) continue;
         notes.add(
           AnkiNote(
             id: row['id'] as int,
             modelId: row['mid'] as int,
             deckId: deckByNote[row['id']] ?? 0,
-            isCloze: model.isCloze,
+            isCloze: model?.isCloze ?? false,
             fields: (row['flds'] as String).split('\u001f'),
             tags: (row['tags'] as String)
                 .trim()

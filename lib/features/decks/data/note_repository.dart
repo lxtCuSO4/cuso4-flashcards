@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../../core/media/media_repository.dart';
 import '../domain/cloze_parser.dart';
 import '../domain/note.dart';
 
@@ -16,8 +17,10 @@ class ClozeRemovalConfirmation implements Exception {
 }
 
 class NoteRepository {
-  NoteRepository(this.db);
+  NoteRepository(this.db, {MediaRepository? mediaRepository})
+    : media = mediaRepository ?? MediaRepository(db);
   final AppDatabase db;
+  final MediaRepository media;
   final _cloze = ClozeParser();
 
   Future<int> createBasicNote({
@@ -65,6 +68,7 @@ class NoteRepository {
           );
     }
     await _writeTags(id, tags);
+    await media.replaceReferences(const {}, fields);
     return id;
   });
 
@@ -134,10 +138,18 @@ class NoteRepository {
               );
         }
         await _writeTags(note.id, note.tags);
+        await media.replaceReferences(
+          media.fieldsFromJson(old.fieldsJson),
+          note.fields,
+        );
       });
 
   Future<void> deleteNote(int id) => db.transaction(() async {
-    await _requireNote(id);
+    final old = await _requireNote(id);
+    await media.replaceReferences(
+      media.fieldsFromJson(old.fieldsJson),
+      const {},
+    );
     await (db.delete(db.notes)..where((n) => n.id.equals(id))).go();
   });
 

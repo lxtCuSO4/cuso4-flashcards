@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -9,6 +10,8 @@ import '../../decks/data/note_repository.dart';
 import '../../decks/domain/note.dart';
 import '../domain/import_error.dart';
 import '../domain/import_report.dart';
+import '../domain/import_progress.dart';
+import 'apkg_background_reader.dart';
 import 'anki_collection_reader.dart';
 import 'anki_note_converter.dart';
 import 'apkg_archive_reader.dart';
@@ -32,61 +35,114 @@ class ApkgImportService {
   final AnkiCollectionReader _collections;
   final AnkiNoteConverter _converter;
   final MediaReferenceRewriter _mediaRewriter = MediaReferenceRewriter();
+  bool _busy = false;
 
   Future<ImportReport> importFile(
     File source, {
     bool merge = false,
     bool Function()? isCancelled,
+    void Function(ImportProgress)? onProgress,
   }) async {
-    final package = await _archives.extract(source);
+    if (_busy) throw StateError('已有导入任务正在进行');
+    _busy = true;
+    int? jobId;
+    try {
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+      jobId = await db
+          .into(db.importJobs)
+          .insert(
+            ImportJobsCompanion.insert(
+              sourceName: p.basename(source.path),
+              status: 'running',
+              createdAtUtc: now,
+              modifiedAtUtc: now,
+            ),
+          );
+      return await _import(source, jobId, merge, isCancelled, onProgress);
+    } catch (error) {
+      if (jobId != null) {
+        await (db.update(
+          db.importJobs,
+        )..where((j) => j.id.equals(jobId!))).write(
+          ImportJobsCompanion(
+            status: Value(
+              error is ApkgImportException &&
+                      error.code == ImportErrorCode.cancelled
+                  ? 'cancelled'
+                  : 'failed',
+            ),
+            modifiedAtUtc: Value(DateTime.now().toUtc().millisecondsSinceEpoch),
+          ),
+        );
+      }
+      rethrow;
+    } finally {
+      _busy = false;
+    }
+  }
+
+  Future<ImportReport> _import(
+    File source,
+    int jobId,
+    bool merge,
+    bool Function()? isCancelled,
+    void Function(ImportProgress)? onProgress,
+  ) async {
+    void checkCancellation() {
+      if (isCancelled?.call() ?? false) {
+        throw const ApkgImportException(
+          ImportErrorCode.cancelled,
+          '已取消导入，本次内容未保存。',
+        );
+      }
+    }
+
+    final destination =
+        mediaDirectory ??
+        Directory(
+          p.join((await getApplicationSupportDirectory()).path, 'media'),
+        );
+    final temporary = Directory(p.join(destination.path, '.imports'));
+    checkCancellation();
+    onProgress?.call(const ImportProgress(ImportPhase.extracting));
+    final package = await extractInBackground(
+      _archives,
+      source.path,
+      temporary.path,
+    );
     PreparedMediaImport? prepared;
     var committed = false;
     try {
-      final collection = _collections.read(package);
-      final modelById = {
-        for (final model in collection.models) model.id: model,
-      };
-      final validDeckIds = collection.decks.map((deck) => deck.id).toSet();
-      final cardsByNote = <int, List<AnkiCard>>{};
-      for (final card in collection.cards) {
-        cardsByNote.putIfAbsent(card.noteId, () => []).add(card);
-      }
-
-      final pending = <_PendingNote>[];
-      final skippedReasons = <String, int>{};
-      final requestedMedia = <String>{};
-      void skip(String reason) =>
-          skippedReasons.update(reason, (n) => n + 1, ifAbsent: () => 1);
-      for (final note in collection.notes) {
-        if (!validDeckIds.contains(note.deckId)) {
-          skip('missingDeck');
-          continue;
-        }
-        final model = modelById[note.modelId];
-        if (model == null) {
-          skip('unsupportedTemplate');
-          continue;
-        }
-        final result = _converter.convert(
-          note,
-          model,
-          cardsByNote[note.id] ?? const [],
-        );
-        if (result.note == null) {
-          skip(result.skippedReason ?? 'unsupportedTemplate');
-          continue;
-        }
-        pending.add(_PendingNote(note.deckId, result.note!));
-        requestedMedia.addAll(result.note!.mediaNames);
-      }
-
-      final destination =
-          mediaDirectory ??
-          Directory(
-            p.join((await getApplicationSupportDirectory()).path, 'media'),
-          );
-      prepared = await MediaImporter(destination)
-          .prepare(package.mediaFiles, requestedMedia);
+      checkCancellation();
+      onProgress?.call(const ImportProgress(ImportPhase.reading));
+      checkCancellation();
+      final collection = await readInBackground(
+        _collections,
+        _converter,
+        package,
+      );
+      checkCancellation();
+      final pending = collection.notes;
+      final skippedReasons = collection.skippedReasons;
+      onProgress?.call(
+        ImportProgress(
+          ImportPhase.media,
+          total: collection.requestedMedia.length,
+        ),
+      );
+      prepared = await MediaImporter(destination).prepare(
+        package.mediaFiles,
+        collection.requestedMedia,
+        isCancelled: isCancelled,
+        onProgress: (count) => onProgress?.call(
+          ImportProgress(
+            ImportPhase.media,
+            completed: count,
+            total: collection.requestedMedia.length,
+          ),
+        ),
+      );
+      checkCancellation();
       final mediaHashes = {
         for (final entry in prepared.assetsByName.entries)
           entry.key: entry.value.contentHash,
@@ -97,9 +153,28 @@ class ApkgImportService {
       var noteCount = 0;
       var cardCount = 0;
       var mediaCount = 0;
-      final mediaReferences = <String, int>{};
 
+      ImportReport? report;
+      onProgress?.call(
+        ImportProgress(ImportPhase.saving, total: pending.length),
+      );
       await db.transaction(() async {
+        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+        for (final asset in prepared!.assetsByName.values) {
+          await db
+              .into(db.media)
+              .insert(
+                MediaCompanion.insert(
+                  contentHash: asset.contentHash,
+                  originalName: asset.originalName,
+                  relativePath: asset.relativePath,
+                  mimeType: asset.mimeType,
+                  byteLength: asset.byteLength,
+                  createdAtUtc: now,
+                ),
+                mode: InsertMode.insertOrIgnore,
+              );
+        }
         final createdPaths = <String, int>{};
         final rootNames = (await db.select(db.decks).get())
             .where((deck) => deck.parentId == null)
@@ -162,12 +237,7 @@ class ApkgImportService {
           deckIds[deck.id] = await ensurePath(deck.name);
         }
         for (final entry in pending) {
-          if (isCancelled?.call() ?? false) {
-            throw const ApkgImportException(
-              ImportErrorCode.cancelled,
-              '已取消导入，本次内容未保存。',
-            );
-          }
+          checkCancellation();
           final targetDeck = deckIds[entry.sourceDeckId]!;
           final converted = entry.note;
           final fields = converted.fields.map(
@@ -191,72 +261,62 @@ class ApkgImportService {
           cardCount += (await (db.select(
             db.cards,
           )..where((card) => card.noteId.equals(id))).get()).length;
-          final hashes = converted.mediaNames
-              .map((name) => prepared!.assetsByName[name]?.contentHash)
-              .whereType<String>()
-              .toSet();
-          for (final hash in hashes) {
-            mediaReferences.update(hash, (n) => n + 1, ifAbsent: () => 1);
+          if (noteCount == 1 ||
+              noteCount % 100 == 0 ||
+              noteCount == pending.length) {
+            onProgress?.call(
+              ImportProgress(
+                ImportPhase.saving,
+                completed: noteCount,
+                total: pending.length,
+              ),
+            );
+            await Future<void>.delayed(Duration.zero);
           }
         }
 
-        if (isCancelled?.call() ?? false) {
-          throw const ApkgImportException(
-            ImportErrorCode.cancelled,
-            '已取消导入，本次内容未保存。',
-          );
-        }
+        checkCancellation();
         mediaCount = await prepared!.commit();
-        final now = DateTime.now().toUtc().millisecondsSinceEpoch;
-        for (final asset in prepared!.assetsByName.values) {
-          final count = mediaReferences.remove(asset.contentHash);
-          if (count == null) continue;
-          final existing =
-              await (db.select(db.media)
-                    ..where((row) => row.contentHash.equals(asset.contentHash)))
-                  .getSingleOrNull();
-          if (existing == null) {
-            await db
-                .into(db.media)
-                .insert(
-                  MediaCompanion.insert(
-                    contentHash: asset.contentHash,
-                    originalName: asset.originalName,
-                    relativePath: asset.relativePath,
-                    mimeType: asset.mimeType,
-                    byteLength: asset.byteLength,
-                    referenceCount: Value(count),
-                    createdAtUtc: now,
-                  ),
-                );
-          } else {
-            await (db.update(
-              db.media,
-            )..where((row) => row.id.equals(existing.id))).write(
-              MediaCompanion(
-                referenceCount: Value(existing.referenceCount + count),
-              ),
-            );
-          }
+        checkCancellation();
+        report = ImportReport(
+          decks: deckIds.length,
+          notes: noteCount,
+          cards: cardCount,
+          media: mediaCount,
+          skipped: skippedReasons.values.fold(0, (sum, n) => sum + n),
+          skippedReasons: Map.unmodifiable(skippedReasons),
+          missingMedia: prepared!.missingNames.length,
+          unsupportedMedia: prepared.unsupportedNames.length,
+        );
+        await (db.update(
+          db.importJobs,
+        )..where((j) => j.id.equals(jobId))).write(
+          ImportJobsCompanion(
+            status: const Value('completed'),
+            reportJson: Value(jsonEncode(report!.toJson())),
+            modifiedAtUtc: Value(DateTime.now().toUtc().millisecondsSinceEpoch),
+          ),
+        );
+        for (final entry in skippedReasons.entries) {
+          await db
+              .into(db.importJobErrors)
+              .insert(
+                ImportJobErrorsCompanion.insert(
+                  jobId: jobId,
+                  reason: entry.key,
+                  count: entry.value,
+                ),
+              );
         }
       });
       committed = true;
-      return ImportReport(
-        decks: deckIds.length,
-        notes: noteCount,
-        cards: cardCount,
-        media: mediaCount,
-        skipped: skippedReasons.values.fold(0, (sum, n) => sum + n),
-        skippedReasons: Map.unmodifiable(skippedReasons),
-        missingMedia: prepared.missingNames.length,
-        unsupportedMedia: prepared.unsupportedNames.length,
-      );
+      return report!;
     } catch (error) {
       if (!committed && prepared != null) await prepared.rollback();
       if (error is ApkgImportException) rethrow;
       throw ApkgImportException(
         ImportErrorCode.transactionFailed,
-        '导入失败，已回滚本次导入：$error',
+        '导入失败，已回滚本次导入。请检查牌组内容与可用存储空间后重试。',
       );
     } finally {
       if (committed && prepared != null) {
@@ -266,7 +326,11 @@ class ApkgImportService {
           // A leftover staging directory does not invalidate committed data.
         }
       }
-      await package.dispose();
+      try {
+        await package.dispose();
+      } on FileSystemException {
+        // Cleanup failure must not misreport a successfully committed import.
+      }
     }
   }
 
@@ -280,10 +344,4 @@ class ApkgImportService {
     }
     return '$name (导入 $suffix)';
   }
-}
-
-class _PendingNote {
-  const _PendingNote(this.sourceDeckId, this.note);
-  final int sourceDeckId;
-  final ConvertedAnkiNote note;
 }

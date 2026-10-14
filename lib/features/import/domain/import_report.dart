@@ -17,4 +17,15 @@ class ImportReport {
   final Map<String, int> skippedReasons;
   final int missingMedia;
   final int unsupportedMedia;
+
+  Map<String, Object> toJson() => {
+    'decks': decks,
+    'notes': notes,
+    'cards': cards,
+    'media': media,
+    'skipped': skipped,
+    'skippedReasons': skippedReasons,
+    'missingMedia': missingMedia,
+    'unsupportedMedia': unsupportedMedia,
+  };
 }

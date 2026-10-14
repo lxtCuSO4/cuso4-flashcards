@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
+import '../domain/import_error.dart';
+
 class ImportedMediaAsset {
   const ImportedMediaAsset({
     required this.originalName,
@@ -71,8 +73,10 @@ class MediaImporter {
 
   Future<PreparedMediaImport> prepare(
     Map<String, File> available,
-    Set<String> requested,
-  ) async {
+    Set<String> requested, {
+    bool Function()? isCancelled,
+    void Function(int)? onProgress,
+  }) async {
     await mediaDirectory.create(recursive: true);
     final imports = Directory(p.join(mediaDirectory.path, '.imports'));
     await imports.create(recursive: true);
@@ -81,7 +85,15 @@ class MediaImporter {
     final missing = <String>{};
     final unsupported = <String>{};
     try {
+      var count = 0;
       for (final name in requested) {
+        if (isCancelled?.call() ?? false) {
+          throw const ApkgImportException(
+            ImportErrorCode.cancelled,
+            '已取消导入，本次内容未保存。',
+          );
+        }
+        onProgress?.call(count++);
         final source = available[name];
         if (source == null || !await source.exists()) {
           missing.add(name);
@@ -108,6 +120,7 @@ class MediaImporter {
           byteLength: length,
         );
       }
+      onProgress?.call(requested.length);
       return PreparedMediaImport(
         mediaDirectory: mediaDirectory,
         stagingDirectory: staging,

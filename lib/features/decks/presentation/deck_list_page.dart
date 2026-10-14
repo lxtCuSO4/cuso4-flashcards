@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -57,6 +59,7 @@ class DeckListPage extends ConsumerWidget {
             '删除“${deck.name}”及其子牌组、全部卡片和学习记录？此操作无法撤销。',
           )) {
             await repository.deleteDeck(deck.id);
+            unawaited(cleanUpUnusedMedia(repository.media));
           }
       }
     } catch (error) {
@@ -73,7 +76,7 @@ class DeckListPage extends ConsumerWidget {
       subtitle: '把知识整理成小块，慢慢记牢。',
       actions: [
         IconButton(
-          onPressed: () => _importNotice(context),
+          onPressed: () => context.push('/import'),
           icon: const Icon(Icons.file_download_outlined),
           tooltip: '导入 .apkg',
         ),
@@ -124,7 +127,7 @@ class DeckListPage extends ConsumerWidget {
                         const SizedBox(height: 24),
                         PressableAction(
                           label: '导入 .apkg',
-                          onPressed: () => _importNotice(context),
+                          onPressed: () => context.push('/import'),
                         ),
                       ],
                     ),
@@ -213,9 +216,4 @@ class DeckListPage extends ConsumerWidget {
       ),
     );
   }
-
-  void _importNotice(BuildContext context) => ScaffoldMessenger.of(context)
-      .showSnackBar(
-        const SnackBar(content: Text('.apkg 导入将在下一开发阶段接入。当前可创建本地卡片。')),
-      );
 }

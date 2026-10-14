@@ -8,7 +8,11 @@ pluginManagement {
             flutterSdkPath
         }
 
-    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+    // The local build helper can isolate plugin compilation from the SDK.
+    includeBuild(
+        System.getProperty("cuso4.flutterGradleDir")
+            ?: "$flutterSdkPath/packages/flutter_tools/gradle"
+    )
 
     repositories {
         google()

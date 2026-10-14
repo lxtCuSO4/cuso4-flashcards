@@ -89,10 +89,23 @@
 - 完整 flutter test --no-pub：103 项通过；flutter analyze --no-pub：无问题。音频测试模拟平台通道验证 Dart 流程，不等于 Android MediaPlayer 实机验证。widget 测试缺少通道曾超时，补齐模拟原生边界后通过。
 - 本次未重试缺少 Gradle 插件依赖的构建，未更新旧 APK；需补工程内构建环境后编译 Kotlin 并验证真实导入、图片、声音和触觉。不修改 SDK/全局配置，不上传 GitHub。
 
-## 下一步（本次更新）
+## 2026-10-15 APK 构建检查点
 
-1. 优先在工程范围内处理缺失构建依赖，产出包含导入与学习的更新 APK；先确认分发/插件缓存，禁止把 offline 当作包装器下载开关。
-2. 编译音频桥接并验证真实设备的文件选择、图片、声音、切后台和触觉；旧 APK 不能当作本阶段结果。
+- 用户确认牌组只有文字和图片：优先这一使用场景，不追加音频专项开发/测试；保留已实现音频代码。
+- 新增 tool/build_android_local.ps1 和本地构建说明。直接使用已安装的 Gradle 9.3.1，在 build/gradle-home 保存新增缓存，在 build/flutter-gradle-plugin 编译 SDK 插件副本；android/settings.gradle.kts 支持仅此次命令的插件副本覆盖。不调用可能下载分发的包装器，禁用 SDK 自动下载，不修改系统环境或全局镜像。
+- 首次在线构建补齐了缺失的 Gradle/Android 依赖，但文件选择插件的 Kotlin 增量缓存因 C 盘 pub 源码和 D 盘工程的相对路径失败。命令增加 kotlin.incremental=false、kotlin.compiler.execution.strategy=in-process，未移动或清理全局缓存。
+- 第二次在线构建成功：BUILD SUCCESSFUL in 2m 15s，应用 MainActivity、文件选择插件与 Dart 代码编译、打包通过。随后离线重建成功：BUILD SUCCESSFUL in 38s，119 项任务、99 项 up-to-date。
+- 更新 APK：build/app/outputs/flutter-apk/app-debug.apk，178456534 字节，约 178.5 MB（170.2 MiB）。这是三架构调试版，不代表正式发布体积。
+- aapt2 核实：包名 com.cuso4.flashcards，名称 CuSO₄闪卡，versionName 1.0.0/versionCode 1，minSdk 26，targetSdk/compileSdk 36，arm64-v8a/armeabi-v7a/x86_64，debuggable。
+- apksigner verify 校验通过（v2，Android Debug 证书）。APK 中 kernel_blob.bin 与本次编译输出 SHA-256 一致，包含 NativeAssetsManifest。APK SHA-256：8A4AAC472A998A35341EFD7B75AF4057AD24B7255F1DFD23F0375A135BFDCF0F。
+- 本次只修改构建脚本/设置/忽略项和进度文档，没有应用业务代码变化，没有重复全量单元测试；上次业务检查为 103 项通过及静态分析无问题。PowerShell 脚本语法解析及 git diff --check 通过。
+- 尚无真机安装、真实文字/图片牌组导入与学习验收，不把最低版本声明视为 Android 8 真机兼容测试。音频仅通过本次 Kotlin 编译，没有专项实机播放验证。
+- 构建保留 Flutter/AGP/Kotlin 模板及依赖的弃用警告、SDK XML 版本提示；没有为消除非阻塞警告修改 SDK 或第三方 pub 源码。未上传 GitHub，未生成正式发布签名。
+
+## 下一步（构建后）
+
+1. 用户可安装更新调试 APK，先验收文字/图片牌组的文件选择、导入、基础/填空卡、图片、显示答案、四项评分、撤销和收藏。
+2. 收集真实手机的问题并针对修正；优先文字/图片与触觉，不追加音频专项工作。新版压缩 Anki 包、正式签名和广泛机型兼容仍待补齐。
 3. 随后补学习统计、额度/保持率设置与收藏列表、日历、通知和备份恢复。
 4. 仍不上传 GitHub；公开分享前补正式签名及安卓版本/机型兼容验证。
 

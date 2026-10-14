@@ -114,9 +114,23 @@
 - 未检测实际手机 CPU 架构、未安装真机，不能由屏幕分辨率保证 ARM64 兼容。release 的文件选择、JNI/SQLite、图片及评分还需真机验收，不能把构建通过视为运行验证。
 - 包名和测试签名一致，可尝试覆盖安装保留数据；若安装提示冲突，应先保留原应用和数据、提供提示，不要直接卸载有数据的版本。只在工程内维护构建配置/文档，没有上传 GitHub。
 
-## 下一步（体积验证后）
+## 2026-10-15 真实 OS 牌组导入兼容修复
 
-1. 用户可优先安装较小的 ARM64 release 模式测试 APK，先确认架构兼容，再验收文字/图片牌组的文件选择、导入、基础/填空卡、图片、显示答案、四项评分、撤销和收藏；原调试包保留备用。
+- 用户在手机导入操作系统牌组时，520 条笔记全部被跳过；已确认允许修复并生成更新 APK。
+- 根因是字段布局：310 条基础笔记为 Front/Back/Source，210 条填空笔记为 Text/Source。旧转换器只接收标准两字段基础卡及 Text/Back Extra 填空卡，把 Source 误判为不支持的模板。
+- 转换器支持末尾可选的 Source/来源：基础卡追加到 back，填空卡追加到 extra，保留原 Back Extra。来源经过既有 HTML 清理，以小字号“来源：”展示；空来源不增加标签，合法本地图片参与既有媒体导入。没有执行自定义模板、CSS 或脚本，没有放宽未知额外字段和卡片 ordinal 检查。
+- 先编写失败回归，实际输入复现 0 笔记/0 卡片；修复后执行导入、内容安全、媒体生命周期及笔记事务相关测试共 48 项，全部通过。未重复不相关的完整业务测试。
+- 只读使用用户提供的真实包，验证导入 520 条笔记（310 基础 + 210 填空）、670 张新卡片、0 媒体、0 跳过、0 缺失媒体；所有笔记保留来源，卡片排程均为未学习状态。原文件 SHA-256 未变：092A638AD585DC6F30667A118E963E943999D7704B60E8313B5D4BBBB312A3AF。
+- 增加可选真实包验收测试 test/features/import/data/os_apkg_acceptance_test.dart，通过进程环境变量 CUSO4_OS_APKG 指定本地输入；未提交牌组内容，缺少此变量时该测试明确跳过。Flutter analyze --no-pub 无问题，git diff --check 通过。
+- 工程内离线 ARM64 release 构建通过：BUILD SUCCESSFUL in 1m 38s，180 项任务；沿用现有依赖缓存，没有修改 SDK/系统设置，没有上传 GitHub。保留既有 Gradle/Kotlin/SDK 的非阻塞警告。
+- 更新包：build/releases/cuso4-flashcards-source-fix-arm64.apk，21459966 字节（约 21.5 MB/20.5 MiB）。SHA-256：B8F09B94FDEADC94B6AE1C5373F0C5D2F824D7CC2B47B9EF2629CFC1B9BF1FC4。
+- aapt2 校验：com.cuso4.flashcards，versionName=1.0.0/versionCode=1，minSdk 26、targetSdk 36、仅 arm64-v8a、非 debuggable。apksigner v2 验证通过，证书 SHA-256 与旧版一致：7729944fb7a11b56489b12f9d8b7ba71e9fe53ef873200445a92892b01a4ea2a，仍为测试签名，不是正式公开发布包。
+- APK 内 libapp.so 与本次构建的 stripped_native_libs 产物 SHA-256 一致：129119ECEE2E5D8216087F92ACF406F037BB41A382DF1D91FCA5B97F956921E1；不同于旧包的 4B807844B4DBBF3F1C416D580328D5886B581E3D5362C453E5B63DC1ECFF9002，确认包中应用代码已更新。APK 大小与旧包相同，不代表仍使用旧应用代码。
+- 旧 ARM64 小包保存在 build/releases/cuso4-flashcards-before-source-fix-arm64.apk，原 debug APK 保留且 SHA-256 未变。手机端覆盖安装、导入和学习仍待用户验收；若出现安装冲突，不先卸载有数据的应用。
+
+## 下一步（导入修复后）
+
+1. 用户覆盖安装修复后的 ARM64 release 模式测试 APK，再次导入同一操作系统牌组，核对 520 条笔记/670 张卡片/0 跳过，并验收来源、基础/填空卡、显示答案、四项评分、撤销和收藏；旧包保留备用，不卸载有数据的应用。
 2. 收集真实手机的问题并针对修正；优先文字/图片与触觉，不追加音频专项工作。新版压缩 Anki 包、正式签名和广泛机型兼容仍待补齐。
 3. 随后补学习统计、额度/保持率设置与收藏列表、日历、通知和备份恢复。
 4. 仍不上传 GitHub；公开分享前补正式签名及安卓版本/机型兼容验证。

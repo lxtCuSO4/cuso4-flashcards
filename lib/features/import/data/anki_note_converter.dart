@@ -46,6 +46,10 @@ class AnkiNoteConverter {
     final names = model.fieldNames
         .map((name) => name.trim().toLowerCase())
         .toList();
+    // Support a known provenance field, not arbitrary Anki template execution.
+    final hasSource =
+        names.isNotEmpty && const ['source', '来源'].contains(names.last);
+    final contentNames = hasSource ? names.sublist(0, names.length - 1) : names;
     final media = <String>{};
     String field(int index) {
       final safe = _sanitizer.sanitize(source.fields[index]);
@@ -53,15 +57,26 @@ class AnkiNoteConverter {
       return safe.html;
     }
 
+    String withSource(String answer) {
+      if (!hasSource) return answer;
+      final sourceHtml = field(names.length - 1);
+      if (sourceHtml.trim().isEmpty) return answer;
+      return '$answer<div><small>来源：$sourceHtml</small></div>';
+    }
+
     if (!model.isCloze) {
-      if (names.length != 2 ||
-          !_sameNames(names, const ['front', 'back'], const ['正面', '背面']) ||
+      if (contentNames.length != 2 ||
+          !_sameNames(
+            contentNames,
+            const ['front', 'back'],
+            const ['正面', '背面'],
+          ) ||
           sourceCards.length != 1 ||
           sourceCards.single.ordinal != 0) {
         return const AnkiConversionResult.skipped('unsupportedTemplate');
       }
       final front = field(0);
-      final back = field(1);
+      final back = withSource(field(1));
       if (front.trim().isEmpty) {
         return const AnkiConversionResult.skipped('emptyFront');
       }
@@ -75,15 +90,15 @@ class AnkiNoteConverter {
       );
     }
 
-    if (names.isEmpty ||
-        names.length > 2 ||
-        !['text', '文字'].contains(names.first) ||
-        (names.length == 2 &&
-            !['back extra', 'extra', '背面额外'].contains(names[1]))) {
+    if (contentNames.isEmpty ||
+        contentNames.length > 2 ||
+        !['text', '文字'].contains(contentNames.first) ||
+        (contentNames.length == 2 &&
+            !['back extra', 'extra', '背面额外'].contains(contentNames[1]))) {
       return const AnkiConversionResult.skipped('unsupportedTemplate');
     }
     final text = field(0);
-    final extra = names.length == 2 ? field(1) : '';
+    final extra = withSource(contentNames.length == 2 ? field(1) : '');
     final indexes = _cloze.indexes(text).toSet();
     final sourceIndexes = sourceCards.map((card) => card.ordinal + 1).toSet();
     if (indexes.isEmpty ||

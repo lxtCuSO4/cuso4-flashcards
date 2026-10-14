@@ -29,6 +29,7 @@ void main() {
   Future<File> fixture({
     bool includeAudio = true,
     bool unknownBasicModel = false,
+    bool withSource = false,
   }) async {
     final collection = File(p.join(scratch.path, 'collection.anki2'));
     final anki = sqlite3.open(collection.path);
@@ -54,6 +55,7 @@ void main() {
             'flds': [
               {'name': 'Front', 'ord': 0},
               {'name': 'Back', 'ord': 1},
+              if (withSource) {'name': 'Source', 'ord': 2},
             ],
           },
           '101': {
@@ -61,7 +63,7 @@ void main() {
             'type': 1,
             'flds': [
               {'name': 'Text', 'ord': 0},
-              {'name': 'Back Extra', 'ord': 1},
+              {'name': withSource ? 'Source' : 'Back Extra', 'ord': 1},
             ],
           },
         }),
@@ -69,13 +71,15 @@ void main() {
       anki.execute('INSERT INTO notes VALUES (?, ?, ?, ?)', [
         10,
         unknownBasicModel ? 999 : 100,
-        '<b>CuSO4</b><img src="salt.png">\u001f硫酸铜',
+        '<b>CuSO4</b><img src="salt.png">\u001f硫酸铜'
+            '${withSource ? '\u001f教材第一章' : ''}',
         ' chemistry ',
       ]);
       anki.execute('INSERT INTO notes VALUES (?, ?, ?, ?)', [
         11,
         101,
-        '{{c1::蓝色}}\u001f[sound:clip.mp3]',
+        '{{c1::蓝色}}${withSource ? '与{{c2::晶体}}' : ''}'
+            '\u001f${withSource ? '教材第二章' : ''}[sound:clip.mp3]',
         ' cloze ',
       ]);
       anki.execute('INSERT INTO notes VALUES (?, ?, ?, ?)', [
@@ -88,6 +92,9 @@ void main() {
       anki.execute('INSERT INTO cards VALUES (?, ?, ?, ?)', [21, 11, 2, 0]);
       anki.execute('INSERT INTO cards VALUES (?, ?, ?, ?)', [22, 12, 2, 0]);
       anki.execute('INSERT INTO cards VALUES (?, ?, ?, ?)', [23, 12, 2, 1]);
+      if (withSource) {
+        anki.execute('INSERT INTO cards VALUES (?, ?, ?, ?)', [24, 11, 2, 1]);
+      }
     } finally {
       anki.close();
     }
@@ -171,6 +178,43 @@ void main() {
           isTrue,
         );
       }
+    },
+  );
+
+  test(
+    'imports Basic/Source and Cloze/Source as new cards with provenance',
+    () async {
+      final report = await ApkgImportService(
+        db,
+        mediaDirectory: mediaDirectory,
+      ).importFile(await fixture(withSource: true));
+      expect((report.notes, report.cards, report.media), (2, 3, 2));
+      expect(report.skippedReasons, {'unsupportedTemplate': 1});
+      final notes = await db.select(db.notes).get();
+      final basic = notes.singleWhere((note) => note.noteType == 0);
+      final cloze = notes.singleWhere((note) => note.noteType == 1);
+      expect(
+        (jsonDecode(basic.fieldsJson) as Map)['back'],
+        contains('来源：教材第一章'),
+      );
+      expect(
+        (jsonDecode(cloze.fieldsJson) as Map)['extra'],
+        contains('来源：教材第二章'),
+      );
+      expect(
+        (jsonDecode(cloze.fieldsJson) as Map)['extra'],
+        contains('[sound:media:'),
+      );
+      final cards = await db.select(db.cards).get();
+      expect(
+        cards.every(
+          (card) =>
+              card.state == 0 &&
+              card.repetitions == 0 &&
+              card.lastReviewAtUtc == null,
+        ),
+        isTrue,
+      );
     },
   );
 

@@ -10,6 +10,7 @@ import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../decks/domain/note.dart';
+import '../../decks/domain/choice_question.dart';
 import '../../decks/presentation/note_preview_page.dart';
 import '../../favorites/presentation/favorite_deck_filter.dart';
 import '../data/search_repository.dart';
@@ -67,6 +68,12 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     MaterialPageRoute<void>(
       builder: (_) => NotePreviewPage(
         type: NoteType.values[item.noteType],
+        choice: NoteType.values[item.noteType].isChoice
+            ? ChoiceQuestion.fromFields(
+                NoteType.values[item.noteType],
+                item.fields,
+              )
+            : null,
         front: item.fields['front'] ?? item.fields['text'] ?? '',
         back: item.fields['back'] ?? item.fields['extra'] ?? '',
         media: ref.read(mediaRepositoryProvider),
@@ -224,6 +231,8 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                   DropdownMenuItem(value: -1, child: Text('全部类型')),
                   DropdownMenuItem(value: 0, child: Text('基础卡')),
                   DropdownMenuItem(value: 1, child: Text('填空卡')),
+                  DropdownMenuItem(value: 2, child: Text('单选题')),
+                  DropdownMenuItem(value: 3, child: Text('多选题')),
                 ],
                 onChanged: (v) => _change(() => _type = v == -1 ? null : v),
               ),
@@ -328,7 +337,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 subtitle: Text(
-                                  '${item.deckPath}\n${item.noteType == 0 ? '基础卡' : '填空卡'} · ${item.cardCount} 张卡片',
+                                  '${item.deckPath}\n${NoteType.values[item.noteType].label} · ${item.cardCount} 张卡片',
                                 ),
                               ),
                               Wrap(

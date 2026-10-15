@@ -6,6 +6,7 @@ import '../../../core/database/app_database.dart';
 import '../../../core/media/media_repository.dart';
 import '../../../core/media/prepared_image.dart';
 import '../domain/cloze_parser.dart';
+import '../domain/choice_question.dart';
 import '../domain/note.dart';
 
 class ClozeRemovalConfirmation implements Exception {
@@ -23,6 +24,13 @@ class NoteRepository {
   final AppDatabase db;
   final MediaRepository media;
   final _cloze = ClozeParser();
+
+  Future<int> createChoiceNote({
+    required int deckId,
+    required ChoiceQuestion question,
+    Iterable<String> tags = const [],
+    Iterable<PreparedImage> images = const [],
+  }) => _create(deckId, question.type, question.toFields(), tags, images);
 
   Future<int> createBasicNote({
     required int deckId,
@@ -181,6 +189,10 @@ class NoteRepository {
   });
 
   List<int> _indexes(NoteType type, Map<String, String> fields) {
+    if (type.isChoice) {
+      ChoiceQuestion.fromFields(type, fields);
+      return [0];
+    }
     if (type == NoteType.basic) {
       if ((fields['front'] ?? '').trim().isEmpty) {
         throw ArgumentError('请填写卡片正面');

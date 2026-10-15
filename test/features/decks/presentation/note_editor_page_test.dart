@@ -8,6 +8,9 @@ import 'package:cuso4_flashcards/core/media/prepared_image.dart';
 import 'package:cuso4_flashcards/features/decks/application/editor_image_picker.dart';
 import 'package:cuso4_flashcards/features/decks/data/deck_repository.dart';
 import 'package:cuso4_flashcards/features/decks/presentation/note_editor_page.dart';
+import 'package:cuso4_flashcards/features/decks/domain/choice_question.dart';
+import 'package:cuso4_flashcards/features/decks/domain/note.dart';
+import 'package:cuso4_flashcards/features/decks/data/note_repository.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -222,6 +225,7 @@ void main() {
     'cloze preview selects each index and resets answer without writes in dark mode',
     (tester) async {
       await open(tester, dark: true);
+      await tap(tester, '基础卡');
       await tap(tester, '填空卡');
       await tester.enterText(
         find.byKey(const ValueKey('note-front')),
@@ -256,4 +260,65 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  for (final type in [NoteType.singleChoice, NoteType.multipleChoice]) {
+    testWidgets('editor validates and saves ${type.name}', (tester) async {
+      await open(tester, dark: true);
+      await tap(tester, '基础卡');
+      await tap(tester, type.label);
+      await tester.enterText(find.byKey(const ValueKey('note-front')), '选择题题干');
+      for (var i = 0; i < 4; i++) {
+        final field = find.byKey(ValueKey('choice-editor-option-$i'));
+        await tester.ensureVisible(field);
+        await tester.enterText(field, '内容 $i');
+      }
+      await tap(tester, '预览卡片');
+      expect(find.textContaining('需要选定'), findsOneWidget);
+      ScaffoldMessenger.of(tester.element(find.byType(NoteEditorPage)))
+          .removeCurrentSnackBar();
+      for (final i in type == NoteType.singleChoice ? [1] : [0, 1]) {
+        final correct = find.byKey(ValueKey('choice-correct-$i'));
+        await tester.ensureVisible(correct);
+        await tester.tap(correct);
+        await tester.pumpAndSettle();
+      }
+      final remove = find.byKey(const ValueKey('choice-remove-3'));
+      await tester.ensureVisible(remove);
+      await tester.tap(remove);
+      await tester.pumpAndSettle();
+      await tap(tester, '预览卡片');
+      await tap(tester, '直接看答案');
+      expect(find.text('未作答'), findsOneWidget);
+      await tester.runAsync(
+        () async => expect(await db.select(db.notes).get(), isEmpty),
+      );
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tap(tester, '保存卡片');
+      await tester.runAsync(() async {
+        for (var i = 0; i < 100; i++) {
+          await tester.pump();
+          if (find.text('返回牌组').evaluate().isNotEmpty) return;
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+        fail('Save did not complete');
+      });
+      await tester.pumpAndSettle();
+      await tester.runAsync(() async {
+        final note = (await db.select(db.notes).get()).single;
+        expect(note.noteType, type.index);
+        final loaded = await NoteRepository(db).getNote(note.id);
+        final question = ChoiceQuestion.fromFields(type, loaded.fields);
+        expect(question.options.length, 3);
+        expect(
+          question.correctIndexes,
+          type == NoteType.singleChoice ? {1} : {0, 1},
+        );
+        expect((await db.select(db.cards).get()).length, 1);
+      });
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    });
+  }
 }

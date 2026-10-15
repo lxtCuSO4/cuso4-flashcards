@@ -3,6 +3,8 @@ import 'package:cuso4_flashcards/core/database/app_database.dart';
 import 'package:cuso4_flashcards/core/feedback/feedback_controller.dart';
 import 'package:cuso4_flashcards/features/decks/data/deck_repository.dart';
 import 'package:cuso4_flashcards/features/decks/data/note_repository.dart';
+import 'package:cuso4_flashcards/features/decks/domain/choice_question.dart';
+import 'package:cuso4_flashcards/features/decks/domain/note.dart';
 import 'package:cuso4_flashcards/features/study/data/study_repository.dart';
 import 'package:cuso4_flashcards/features/study/presentation/study_page.dart';
 import 'package:cuso4_flashcards/features/settings/data/study_settings_repository.dart';
@@ -93,6 +95,46 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
   });
+
+  testWidgets(
+    'choice submission stays separate from FSRS and undo resets attempt',
+    (tester) async {
+      final choiceDeck = await DeckRepository(db).createDeck('选择题');
+      await NoteRepository(db).createChoiceNote(
+        deckId: choiceDeck,
+        question: ChoiceQuestion(
+          type: NoteType.singleChoice,
+          prompt: '蓝色晶体',
+          options: ['硫酸铜', '氯化钠'],
+          correctIndexes: [0],
+        ),
+      );
+      deck = choiceDeck;
+      await open(tester);
+      await tester.tap(find.byKey(const ValueKey('choice-option-0')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('提交答案'));
+      await tester.tap(find.text('提交答案'));
+      await tester.pumpAndSettle();
+      expect(find.text('回答正确'), findsOneWidget);
+      expect(await db.select(db.reviewLogs).get(), isEmpty);
+      await tester.tap(find.byTooltip('收藏卡片'));
+      await tester.pumpAndSettle();
+      expect(find.text('回答正确'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const ValueKey('rating-good')));
+      await tester.tap(find.byKey(const ValueKey('rating-good')));
+      await tester.pumpAndSettle();
+      expect((await db.select(db.reviewLogs).get()).length, 1);
+      await tester.tap(find.byTooltip('撤销上次评分'));
+      await tester.pumpAndSettle();
+      expect(await db.select(db.reviewLogs).get(), isEmpty);
+      expect(find.text('回答正确'), findsNothing);
+      expect(find.byKey(const ValueKey('rating-good')), findsNothing);
+      expect(find.byTooltip('取消收藏'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
     'study entry reads persisted limits before showing any new card',

@@ -212,7 +212,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Text(
-                        '${entry.deckName} · ${entry.type == NoteType.basic ? '基础卡' : '填空 c${entry.clozeIndex}'}',
+                        '${entry.deckName} · ${entry.type == NoteType.cloze ? '填空 c${entry.clozeIndex}' : entry.type.label}',
                       ),
                       trailing: IconButton(
                         tooltip: '取消收藏',

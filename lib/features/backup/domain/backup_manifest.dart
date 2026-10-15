@@ -49,14 +49,16 @@ class BackupManifest {
     required this.database,
     required this.media,
     this.appVersion = '1.0.0+1',
+    this.formatVersion = 2,
   });
   final DateTime createdAtUtc;
   final BackupEntry database;
   final Map<String, BackupEntry> media;
   final String appVersion;
+  final int formatVersion;
   Map<String, Object> toJson() => {
     'format': 'cuso4-backup',
-    'formatVersion': 1,
+    'formatVersion': formatVersion,
     'databaseSchemaVersion': 1,
     'appVersion': appVersion,
     'createdAtUtc': createdAtUtc.toUtc().toIso8601String(),
@@ -66,7 +68,7 @@ class BackupManifest {
   };
   factory BackupManifest.fromJson(dynamic value) {
     if (value is! Map || value['format'] != 'cuso4-backup') throw invalidBackup;
-    if (value['formatVersion'] is int && value['formatVersion'] > 1 ||
+    if (value['formatVersion'] is int && value['formatVersion'] > 2 ||
         value['databaseSchemaVersion'] is int &&
             value['databaseSchemaVersion'] > 1) {
       throw const BackupException(
@@ -74,7 +76,7 @@ class BackupManifest {
         '该备份来自较新版应用，请更新 Lunar Memory 后恢复。',
       );
     }
-    if (value['formatVersion'] != 1 ||
+    if (![1, 2].contains(value['formatVersion']) ||
         value['databaseSchemaVersion'] != 1 ||
         value['includesSettings'] != true ||
         value['appVersion'] is! String ||
@@ -106,6 +108,7 @@ class BackupManifest {
       database: database,
       media: media,
       appVersion: value['appVersion'] as String,
+      formatVersion: value['formatVersion'] as int,
     );
   }
 }

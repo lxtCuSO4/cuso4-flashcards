@@ -9,6 +9,8 @@ import 'package:path/path.dart' as p;
 import 'package:sqlite3/sqlite3.dart';
 
 import '../../../core/database/app_database.dart';
+import '../../decks/domain/choice_question.dart';
+import '../../decks/domain/note.dart';
 import '../domain/backup_manifest.dart';
 
 /// File-backed ZIP and hashing work is invoked on a worker isolate.
@@ -78,6 +80,24 @@ class BackupArchive {
           .toList();
       // Reject additional views/triggers/altered constraints, not just missing tables.
       if (jsonEncode(schema) != jsonEncode(reference)) throw invalidBackup;
+      for (final row in db.select('SELECT note_type, fields_json FROM notes')) {
+        final type = row['note_type'];
+        if (type is! int || type < 0 || type >= NoteType.values.length) {
+          throw invalidBackup;
+        }
+        if (NoteType.values[type].isChoice) {
+          try {
+            ChoiceQuestion.fromFields(
+              NoteType.values[type],
+              Map<String, String>.from(
+                jsonDecode(row['fields_json'] as String) as Map,
+              ),
+            );
+          } catch (_) {
+            throw invalidBackup;
+          }
+        }
+      }
       referencedMedia(db);
     } finally {
       db.close();

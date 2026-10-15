@@ -10,6 +10,8 @@ import 'package:cuso4_flashcards/core/database/app_database.dart';
 import 'package:cuso4_flashcards/core/media/media_repository.dart';
 import 'package:cuso4_flashcards/features/decks/data/deck_repository.dart';
 import 'package:cuso4_flashcards/features/decks/data/note_repository.dart';
+import 'package:cuso4_flashcards/features/decks/domain/choice_question.dart';
+import 'package:cuso4_flashcards/features/decks/domain/note.dart';
 import 'package:cuso4_flashcards/features/practice/data/practice_repository.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -175,6 +177,41 @@ void main() {
       await close(tester);
     },
   );
+
+  testWidgets('choice round locks answers and never writes scheduling', (
+    tester,
+  ) async {
+    final note = await NoteRepository(db).createChoiceNote(
+      deckId: deck,
+      question: ChoiceQuestion(
+        type: NoteType.multipleChoice,
+        prompt: '进程与线程',
+        options: ['进程', '线程', '网线'],
+        correctIndexes: [0, 1],
+      ),
+    );
+    final id = (await (db.select(
+      db.cards,
+    )..where((c) => c.noteId.equals(note))).getSingle()).id;
+    await open(tester, repository: ControlledPracticeRepository(db, [id]));
+    final before = await tester.runAsync(snapshot);
+    await tap(tester, '开始随机练习');
+    for (final index in [0, 1]) {
+      final option = find.byKey(ValueKey('choice-option-$index'));
+      await tester.ensureVisible(option);
+      await tester.tap(option);
+      await tester.pumpAndSettle();
+    }
+    await tap(tester, '提交答案');
+    expect(find.text('回答正确'), findsOneWidget);
+    await tap(tester, '完成本轮');
+    await tap(tester, '再练一轮');
+    expect(find.text('回答正确'), findsNothing);
+    await tap(tester, '直接看答案');
+    expect(find.text('未作答'), findsOneWidget);
+    expect(await tester.runAsync(snapshot), before);
+    await close(tester);
+  });
 
   testWidgets('count validation, empty scope and include chapters are usable', (
     tester,

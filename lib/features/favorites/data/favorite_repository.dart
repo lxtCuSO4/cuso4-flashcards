@@ -72,7 +72,7 @@ class FavoriteRepository {
             jsonDecode(row.read<String>('fields_json')) as Map,
           );
           final type = NoteType.values[row.read<int>('note_type')];
-          final question = type == NoteType.basic
+          final question = type != NoteType.cloze
               ? fields['front'] ?? ''
               : ClozeParser().renderQuestion(fields['text'] ?? '', clozeIndex);
           final fragment = html.parseFragment(question);

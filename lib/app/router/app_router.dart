@@ -8,6 +8,7 @@ import '../../features/decks/presentation/card_list_page.dart';
 import '../../features/decks/presentation/note_editor_page.dart';
 import '../../features/records/presentation/records_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../features/settings/presentation/problem_feedback_page.dart';
 import '../../features/settings/presentation/study_settings_page.dart';
 import '../../features/import/presentation/import_page.dart';
 import '../../features/study/presentation/study_page.dart';
@@ -22,6 +23,10 @@ import '../../features/storage/storage_page.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
+      GoRoute(
+        path: '/feedback',
+        builder: (_, _) => const ProblemFeedbackPage(),
+      ),
       GoRoute(path: '/storage', builder: (_, _) => const StoragePage()),
       GoRoute(path: '/reminders', builder: (_, _) => const ReminderPage()),
       GoRoute(

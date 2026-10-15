@@ -90,6 +90,13 @@ class SettingsPage extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/backup'),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.mail_outline),
+                  title: const Text('问题反馈'),
+                  subtitle: const Text('填写表单，通过邮件反馈问题或建议'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/feedback'),
+                ),
               ],
             ),
           ),

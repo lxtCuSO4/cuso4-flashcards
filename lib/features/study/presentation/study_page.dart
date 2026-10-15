@@ -12,7 +12,9 @@ import '../../../core/media/local_audio_controller.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../../core/widgets/touhou_tag.dart';
 import '../../decks/domain/cloze_parser.dart';
+import '../../decks/domain/choice_question.dart';
 import '../../decks/domain/note.dart';
+import '../../decks/presentation/choice_card_face.dart';
 import '../application/study_session_controller.dart';
 import '../domain/scheduler.dart';
 import 'review_rating_bar.dart';
@@ -121,7 +123,7 @@ class _StudyPageState extends ConsumerState<StudyPage>
         final parser = ClozeParser();
         final question = note == null
             ? ''
-            : note.type == NoteType.basic
+            : note.type != NoteType.cloze
             ? note.fields['front'] ?? ''
             : parser.renderQuestion(
                 note.fields['text'] ?? '',
@@ -129,7 +131,7 @@ class _StudyPageState extends ConsumerState<StudyPage>
               );
         final answer = note == null
             ? ''
-            : note.type == NoteType.basic
+            : note.type != NoteType.cloze
             ? note.fields['back'] ?? ''
             : parser.renderAnswer(
                 note.fields['text'] ?? '',
@@ -267,15 +269,36 @@ class _StudyPageState extends ConsumerState<StudyPage>
                                               ?.copyWith(color: scheme.primary),
                                         ),
                                         const SizedBox(height: 24),
-                                        Text(
-                                          '先在心里回想',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelMedium,
-                                        ),
+                                        if (!note!.type.isChoice)
+                                          Text(
+                                            '先在心里回想',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelMedium,
+                                          ),
                                         const SizedBox(height: 12),
-                                        content(question),
-                                        if (_session.answerVisible) ...[
+                                        if (note.type.isChoice)
+                                          ChoiceCardFace(
+                                            key: ValueKey(
+                                              'choice-session-${_session.presentationRevision}',
+                                            ),
+                                            question: ChoiceQuestion.fromFields(
+                                              note.type,
+                                              note.fields,
+                                            ),
+                                            media: ref.read(
+                                              mediaRepositoryProvider,
+                                            ),
+                                            audio: _audio,
+                                            answerVisible:
+                                                _session.answerVisible,
+                                            enabled: !_locked,
+                                            onReveal: _session.showAnswer,
+                                          )
+                                        else
+                                          content(question),
+                                        if (_session.answerVisible &&
+                                            !note.type.isChoice) ...[
                                           const Padding(
                                             padding: EdgeInsets.symmetric(
                                               vertical: 20,
@@ -295,7 +318,7 @@ class _StudyPageState extends ConsumerState<StudyPage>
                                           content(
                                             answer.isEmpty ? '（空白答案）' : answer,
                                           ),
-                                          if (note!.type == NoteType.cloze &&
+                                          if (note.type == NoteType.cloze &&
                                               (note.fields['extra'] ?? '')
                                                   .isNotEmpty) ...[
                                             const SizedBox(height: 16),
@@ -353,7 +376,9 @@ class _StudyPageState extends ConsumerState<StudyPage>
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  if (item != null && !_session.answerVisible)
+                                  if (item != null &&
+                                      !_session.answerVisible &&
+                                      !item.note.type.isChoice)
                                     PressableAction(
                                       label: '显示答案',
                                       onPressed: _locked

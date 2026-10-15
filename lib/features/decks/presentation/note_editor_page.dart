@@ -11,8 +11,10 @@ import '../../../core/widgets/pressable_action.dart';
 import '../application/editor_image_picker.dart';
 import '../data/note_repository.dart';
 import '../domain/cloze_parser.dart';
+import '../domain/choice_question.dart';
 import '../domain/note.dart';
 import 'note_preview_page.dart';
+import 'choice_editor_fields.dart';
 
 class NoteEditorPage extends ConsumerStatefulWidget {
   const NoteEditorPage({super.key, required this.deckId, this.noteId});
@@ -26,6 +28,10 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
   final _front = TextEditingController();
   final _back = TextEditingController();
   final _tags = TextEditingController();
+  final _options = List.generate(4, (_) => TextEditingController());
+  final _retiredOptions = <TextEditingController>[];
+  final _correctIndexes = <int>{};
+  bool _shuffle = false;
   NoteType _type = NoteType.basic;
   Note? _original;
   bool _loading = false;
@@ -35,7 +41,17 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
   bool _discarding = false;
   final _images = <String, PreparedImage>{};
   bool get _busy => _saving || _picking;
-  Map<String, String> get _fields => _type == NoteType.basic
+  ChoiceQuestion get _choice => ChoiceQuestion(
+    type: _type,
+    prompt: _front.text,
+    options: _options.map((c) => c.text),
+    correctIndexes: _correctIndexes,
+    explanation: _back.text,
+    shuffle: _shuffle,
+  );
+  Map<String, String> get _fields => _type.isChoice
+      ? _choice.toFields()
+      : _type == NoteType.basic
       ? {'front': _front.text, 'back': _back.text}
       : {'text': _front.text, 'extra': _back.text};
   String? _loadError;
@@ -58,9 +74,20 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
       _original = note;
       _type = note.type;
       _front.text =
-          note.fields[_type == NoteType.basic ? 'front' : 'text'] ?? '';
+          note.fields[_type == NoteType.cloze ? 'text' : 'front'] ?? '';
       _back.text =
-          note.fields[_type == NoteType.basic ? 'back' : 'extra'] ?? '';
+          note.fields[_type == NoteType.cloze ? 'extra' : 'back'] ?? '';
+      if (_type.isChoice) {
+        final choice = ChoiceQuestion.fromFields(_type, note.fields);
+        _retiredOptions.addAll(_options);
+        _options
+          ..clear()
+          ..addAll(choice.options.map((v) => TextEditingController(text: v)));
+        _correctIndexes
+          ..clear()
+          ..addAll(choice.correctIndexes);
+        _shuffle = choice.shuffle;
+      }
       _tags.text = note.tags.join(' ');
       setState(() => _loading = false);
     } catch (_) {
@@ -78,6 +105,9 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
     _front.dispose();
     _back.dispose();
     _tags.dispose();
+    for (final controller in [..._options, ..._retiredOptions]) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -88,7 +118,14 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
     final tags = _tags.text.split(RegExp(r'[\s,，]+'));
     try {
       if (_original == null) {
-        if (_type == NoteType.basic) {
+        if (_type.isChoice) {
+          await repository.createChoiceNote(
+            deckId: widget.deckId,
+            question: _choice,
+            tags: tags,
+            images: _images.values,
+          );
+        } else if (_type == NoteType.basic) {
           await repository.createBasicNote(
             deckId: widget.deckId,
             front: _front.text,
@@ -185,12 +222,20 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
 
   Future<void> _preview() async {
     FocusScope.of(context).unfocus();
+    ChoiceQuestion? choice;
+    try {
+      if (_type.isChoice) choice = _choice;
+    } catch (error) {
+      showActionError(context, error);
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => NotePreviewPage(
           type: _type,
           front: _front.text,
           back: _back.text,
+          choice: choice,
           media: ref.read(mediaRepositoryProvider),
           draftImages: Map.unmodifiable({
             for (final image in _images.values) image.token: image.bytes,
@@ -243,16 +288,27 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SegmentedButton<NoteType>(
-                  segments: const [
-                    ButtonSegment(value: NoteType.basic, label: Text('基础卡')),
-                    ButtonSegment(value: NoteType.cloze, label: Text('填空卡')),
+                DropdownButtonFormField<NoteType>(
+                  initialValue: _type,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '卡片类型'),
+                  items: [
+                    for (final type in NoteType.values)
+                      DropdownMenuItem(value: type, child: Text(type.label)),
                   ],
-                  selected: {_type},
-                  onSelectionChanged: widget.noteId != null || _busy
+                  onChanged: widget.noteId != null || _busy
                       ? null
                       : (value) => setState(() {
-                          _type = value.single;
+                          _type = value!;
+                          if (_type == NoteType.singleChoice &&
+                              _correctIndexes.length > 1) {
+                            final first = _correctIndexes.reduce(
+                              (a, b) => a < b ? a : b,
+                            );
+                            _correctIndexes
+                              ..clear()
+                              ..add(first);
+                          }
                           _dirty = true;
                         }),
                 ),
@@ -265,7 +321,11 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
                   maxLines: 12,
                   onChanged: (_) => setState(() => _dirty = true),
                   decoration: InputDecoration(
-                    labelText: _type == NoteType.basic ? '正面 · 问题' : '填空原文',
+                    labelText: _type.isChoice
+                        ? '题干'
+                        : _type == NoteType.basic
+                        ? '正面 · 问题'
+                        : '填空原文',
                     alignLabelWithHint: true,
                     helperText: _type == NoteType.cloze
                         ? '示例：硫酸铜晶体呈 {{c1::蓝色::颜色}}'
@@ -275,10 +335,53 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
                 ),
                 const SizedBox(height: 8),
                 PressableAction(
-                  label: _type == NoteType.basic ? '正面插入图片' : '原文插入图片',
+                  label: _type.isChoice
+                      ? '题干插入图片'
+                      : _type == NoteType.basic
+                      ? '正面插入图片'
+                      : '原文插入图片',
                   onPressed: _busy ? null : () => _insertImage(_front),
                 ),
                 const SizedBox(height: 20),
+                if (_type.isChoice)
+                  ChoiceEditorFields(
+                    options: _options,
+                    correctIndexes: _correctIndexes,
+                    enabled: !_busy,
+                    shuffle: _shuffle,
+                    onChanged: () => setState(() => _dirty = true),
+                    onCorrect: (index, selected) => setState(() {
+                      if (selected) {
+                        if (_type == NoteType.singleChoice) {
+                          _correctIndexes.clear();
+                        }
+                        _correctIndexes.add(index);
+                      } else {
+                        _correctIndexes.remove(index);
+                      }
+                      _dirty = true;
+                    }),
+                    onAdd: () => setState(() {
+                      _options.add(TextEditingController());
+                      _dirty = true;
+                    }),
+                    onRemove: (index) => setState(() {
+                      _retiredOptions.add(_options.removeAt(index));
+                      final updated = _correctIndexes
+                          .where((i) => i != index)
+                          .map((i) => i > index ? i - 1 : i)
+                          .toList();
+                      _correctIndexes
+                        ..clear()
+                        ..addAll(updated);
+                      _dirty = true;
+                    }),
+                    onShuffle: (value) => setState(() {
+                      _shuffle = value;
+                      _dirty = true;
+                    }),
+                    onInsertImage: (index) => _insertImage(_options[index]),
+                  ),
                 TextField(
                   key: const ValueKey('note-back'),
                   enabled: !_busy,
@@ -287,13 +390,21 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
                   maxLines: 10,
                   onChanged: (_) => setState(() => _dirty = true),
                   decoration: InputDecoration(
-                    labelText: _type == NoteType.basic ? '背面 · 答案' : '补充说明',
+                    labelText: _type.isChoice
+                        ? '答案解析（可选）'
+                        : _type == NoteType.basic
+                        ? '背面 · 答案'
+                        : '补充说明',
                     alignLabelWithHint: true,
                   ),
                 ),
                 const SizedBox(height: 8),
                 PressableAction(
-                  label: _type == NoteType.basic ? '背面插入图片' : '补充插入图片',
+                  label: _type.isChoice
+                      ? '解析插入图片'
+                      : _type == NoteType.basic
+                      ? '背面插入图片'
+                      : '补充插入图片',
                   onPressed: _busy ? null : () => _insertImage(_back),
                 ),
                 const SizedBox(height: 8),

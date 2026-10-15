@@ -9,6 +9,8 @@ import 'package:cuso4_flashcards/features/backup/data/restore_service.dart';
 import 'package:cuso4_flashcards/features/backup/domain/backup_manifest.dart';
 import 'package:cuso4_flashcards/features/decks/data/deck_repository.dart';
 import 'package:cuso4_flashcards/features/decks/data/note_repository.dart';
+import 'package:cuso4_flashcards/features/decks/domain/choice_question.dart';
+import 'package:cuso4_flashcards/features/decks/domain/note.dart';
 import 'package:cuso4_flashcards/features/study/data/study_repository.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:drift/native.dart';
@@ -97,6 +99,12 @@ void main() {
       jsonDecode(jsonEncode(value.toJson())),
     );
     expect(parsed.toJson(), value.toJson());
+    expect(parsed.formatVersion, 2);
+    expect(
+      BackupManifest.fromJson(value.toJson()..['formatVersion'] = 1)
+          .formatVersion,
+      1,
+    );
     final newer = value.toJson()..['formatVersion'] = 999;
     expect(
       () => BackupManifest.fromJson(newer),
@@ -154,6 +162,51 @@ void main() {
     expect(
       await File(p.join(prepared.path, 'media', imageHash)).readAsString(),
       'local image fixture',
+    );
+  });
+
+  test('choice options and their images survive backup restore', () async {
+    final deck = (await db.select(db.decks).get()).single.id;
+    final question = ChoiceQuestion(
+      type: NoteType.multipleChoice,
+      prompt: '选择两项',
+      options: ['<img src="media:$imageHash">', '硫', '铁'],
+      correctIndexes: [0, 1],
+      explanation: '图文解析',
+      shuffle: true,
+    );
+    await NoteRepository(db).createChoiceNote(deckId: deck, question: question);
+    final file = await export();
+    final prepared = await RestoreService(root).prepare(file);
+    final copy = sql.sqlite3.open(
+      p.join(prepared.path, 'cuso4.sqlite'),
+      mode: sql.OpenMode.readOnly,
+    );
+    try {
+      final row = copy
+          .select(
+            'SELECT note_type, fields_json FROM notes WHERE note_type = 3',
+          )
+          .single;
+      final restored = ChoiceQuestion.fromFields(
+        NoteType.values[row['note_type'] as int],
+        Map<String, String>.from(
+          jsonDecode(row['fields_json'] as String) as Map,
+        ),
+      );
+      expect(restored.toFields(), question.toFields());
+      expect(
+        copy.select('SELECT repetitions FROM cards WHERE id = ?', [
+          cardId,
+        ]).single['repetitions'],
+        7,
+      );
+    } finally {
+      copy.close();
+    }
+    expect(
+      await File(p.join(prepared.path, 'media', imageHash)).exists(),
+      isTrue,
     );
   });
 

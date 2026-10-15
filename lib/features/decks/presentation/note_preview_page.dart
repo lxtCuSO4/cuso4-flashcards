@@ -8,7 +8,9 @@ import '../../../core/media/media_repository.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../domain/cloze_parser.dart';
+import '../domain/choice_question.dart';
 import '../domain/note.dart';
+import 'choice_card_face.dart';
 
 class NotePreviewPage extends StatefulWidget {
   const NotePreviewPage({
@@ -18,8 +20,10 @@ class NotePreviewPage extends StatefulWidget {
     required this.back,
     required this.media,
     required this.draftImages,
+    this.choice,
   });
   final NoteType type;
+  final ChoiceQuestion? choice;
   final String front;
   final String back;
   final MediaRepository media;
@@ -49,12 +53,14 @@ class _NotePreviewPageState extends State<NotePreviewPage> {
   @override
   Widget build(BuildContext context) {
     final basic = widget.type == NoteType.basic;
-    final valid = basic ? widget.front.trim().isNotEmpty : _index != null;
+    final valid =
+        widget.type.isChoice ||
+        (basic ? widget.front.trim().isNotEmpty : _index != null);
     final parser = ClozeParser();
-    final question = basic || _index == null
+    final question = widget.type.isChoice || basic || _index == null
         ? widget.front
         : parser.renderQuestion(widget.front, _index!);
-    final answer = basic
+    final answer = widget.type.isChoice || basic
         ? widget.back
         : parser.renderAnswer(widget.front, _index ?? 1);
     return PageFrame(
@@ -63,7 +69,7 @@ class _NotePreviewPageState extends State<NotePreviewPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!basic && _indexes.isNotEmpty) ...[
+          if (widget.type == NoteType.cloze && _indexes.isNotEmpty) ...[
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -92,8 +98,18 @@ class _NotePreviewPageState extends State<NotePreviewPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _content(question),
-                  if (_answer) ...[
+                  if (widget.type.isChoice)
+                    ChoiceCardFace(
+                      question: widget.choice!,
+                      media: widget.media,
+                      audio: _audio,
+                      draftImages: widget.draftImages,
+                      answerVisible: _answer,
+                      onReveal: () => setState(() => _answer = true),
+                    )
+                  else
+                    _content(question),
+                  if (_answer && !widget.type.isChoice) ...[
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 16),
                       child: Divider(),
@@ -111,10 +127,17 @@ class _NotePreviewPageState extends State<NotePreviewPage> {
             ),
           ),
           const SizedBox(height: 24),
-          PressableAction(
-            label: _answer ? '隐藏答案' : '显示答案',
-            onPressed: valid ? () => setState(() => _answer = !_answer) : null,
-          ),
+          if (!widget.type.isChoice || _answer)
+            PressableAction(
+              label: widget.type.isChoice
+                  ? '重新作答'
+                  : _answer
+                  ? '隐藏答案'
+                  : '显示答案',
+              onPressed: valid
+                  ? () => setState(() => _answer = !_answer)
+                  : null,
+            ),
         ],
       ),
     );

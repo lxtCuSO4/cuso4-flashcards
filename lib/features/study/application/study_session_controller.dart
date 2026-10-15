@@ -24,6 +24,7 @@ class StudySessionController extends ChangeNotifier {
   bool _started = false;
   bool _answerVisible = false;
   int _completedReviews = 0;
+  int _presentationRevision = 0;
   StudyCard? _current;
   ReviewReceipt? _lastReview;
   Map<ReviewRating, Duration> _previewIntervals = const {};
@@ -36,6 +37,7 @@ class StudySessionController extends ChangeNotifier {
   bool get isComplete =>
       _started && !_busy && _current == null && _error == null;
   int get completedReviews => _completedReviews;
+  int get presentationRevision => _presentationRevision;
   Map<ReviewRating, Duration> get previewIntervals => _previewIntervals;
   String? get error => _error;
 
@@ -155,6 +157,7 @@ class StudySessionController extends ChangeNotifier {
   }
 
   void _setCurrent(StudyCard? item) {
+    _presentationRevision++;
     _current = item;
     _answerVisible = false;
     _previewIntervals = const {};

@@ -9,6 +9,7 @@ import '../../../app/providers.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
+import '../domain/note.dart';
 
 final deckNotesProvider = StreamProvider.autoDispose.family((ref, int deckId) {
   final db = ref.watch(databaseProvider);
@@ -101,7 +102,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle: Text(note.noteType == 0 ? '基础卡' : '填空卡'),
+                      subtitle: Text(NoteType.values[note.noteType].label),
                       onTap: () => context.push(
                         '/decks/${widget.deckId}/edit/${note.id}',
                       ),

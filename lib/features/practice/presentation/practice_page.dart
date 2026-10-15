@@ -283,16 +283,17 @@ class _PracticePageState extends ConsumerState<PracticePage>
                 answerVisible: _answerVisible,
                 media: ref.read(mediaRepositoryProvider),
                 audio: _audio,
+                onReveal: () => setState(() => _answerVisible = true),
               ),
               const SizedBox(height: 24),
-              if (!_answerVisible)
+              if (!_answerVisible && !item.note.type.isChoice)
                 PressableAction(
                   label: '显示答案',
                   onPressed: _busy
                       ? null
                       : () => setState(() => _answerVisible = true),
-                )
-              else
+                ),
+              if (_answerVisible)
                 PressableAction(
                   label: _index + 1 == round.cardIds.length ? '完成本轮' : '下一张',
                   onPressed: _busy ? null : _next,

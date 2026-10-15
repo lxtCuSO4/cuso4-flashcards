@@ -9,7 +9,9 @@ import '../../../core/media/local_audio_controller.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../decks/domain/cloze_parser.dart';
+import '../../decks/domain/choice_question.dart';
 import '../../decks/domain/note.dart';
+import '../../decks/presentation/choice_card_face.dart';
 import '../../study/domain/study_card.dart';
 
 class FavoritePreviewPage extends ConsumerStatefulWidget {
@@ -91,6 +93,31 @@ class _FavoritePreviewPageState extends ConsumerState<FavoritePreviewPage>
           );
         }
         final fields = item.note.fields;
+        if (item.note.type.isChoice) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                item.deckName,
+                style: Theme.of(context).textTheme.labelLarge,
+              ),
+              const SizedBox(height: 16),
+              ChoiceCardFace(
+                key: ValueKey('favorite-choice-${item.card.id}'),
+                question: ChoiceQuestion.fromFields(item.note.type, fields),
+                media: ref.read(mediaRepositoryProvider),
+                audio: _audio,
+                answerVisible: _answerVisible,
+                onReveal: () => setState(() => _answerVisible = true),
+              ),
+              if (_answerVisible)
+                PressableAction(
+                  label: '重新作答',
+                  onPressed: () => setState(() => _answerVisible = false),
+                ),
+            ],
+          );
+        }
         final basic = item.note.type == NoteType.basic;
         final parser = ClozeParser();
         final question = basic

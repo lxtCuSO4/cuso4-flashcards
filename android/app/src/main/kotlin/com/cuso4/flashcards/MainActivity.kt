@@ -17,12 +17,14 @@ class MainActivity : FlutterActivity() {
     private var playbackId: Int? = null
     private var backupBridge: BackupDocumentBridge? = null
     private var reminderBridge: LearningReminderBridge? = null
+    private var feedbackBridge: ProblemFeedbackBridge? = null
     private val audioManager by lazy { getSystemService(AUDIO_SERVICE) as AudioManager }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         backupBridge = BackupDocumentBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         reminderBridge = LearningReminderBridge(this, flutterEngine.dartExecutor.binaryMessenger)
+        feedbackBridge = ProblemFeedbackBridge(this, flutterEngine.dartExecutor.binaryMessenger)
         audioChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger,
             "com.cuso4.flashcards/audio").also { channel ->
             channel.setMethodCallHandler { call, result ->
@@ -92,6 +94,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        feedbackBridge?.dispose()
+        feedbackBridge = null
         reminderBridge?.dispose()
         reminderBridge = null
         backupBridge?.dispose()

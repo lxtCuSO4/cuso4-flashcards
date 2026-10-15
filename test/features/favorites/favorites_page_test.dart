@@ -3,6 +3,8 @@ import 'package:cuso4_flashcards/app/providers.dart';
 import 'package:cuso4_flashcards/core/database/app_database.dart';
 import 'package:cuso4_flashcards/features/decks/data/deck_repository.dart';
 import 'package:cuso4_flashcards/features/decks/data/note_repository.dart';
+import 'package:cuso4_flashcards/features/decks/domain/choice_question.dart';
+import 'package:cuso4_flashcards/features/decks/domain/note.dart';
 import 'package:cuso4_flashcards/features/study/data/study_repository.dart';
 import 'package:cuso4_flashcards/core/widgets/pressable_action.dart';
 import 'package:drift/native.dart';
@@ -79,6 +81,47 @@ void main() {
     await tester.tap(find.text('查看收藏'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('favorite choice preview supports resubmission without ratings', (
+    tester,
+  ) async {
+    final deck = (await db.select(db.decks).get()).single.id;
+    final note = await NoteRepository(db).createChoiceNote(
+      deckId: deck,
+      question: ChoiceQuestion(
+        type: NoteType.singleChoice,
+        prompt: '选择题预览',
+        options: ['进程', '网线'],
+        correctIndexes: [0],
+      ),
+    );
+    final card = await (db.select(
+      db.cards,
+    )..where((c) => c.noteId.equals(note))).getSingle();
+    await StudyRepository(db).setFavorite(card.id, true);
+    await open(tester);
+    await tester.tap(find.byKey(ValueKey('favorite-card-${card.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('choice-option-0')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('提交答案'));
+    await tester.tap(find.text('提交答案'));
+    await tester.pumpAndSettle();
+    expect(find.text('回答正确'), findsOneWidget);
+    await tester.ensureVisible(find.text('重新作答'));
+    await tester.tap(find.text('重新作答'));
+    await tester.pumpAndSettle();
+    expect(find.text('回答正确'), findsNothing);
+    expect(await db.select(db.reviewLogs).get(), isEmpty);
+    expect(
+      (await (db.select(
+        db.cards,
+      )..where((c) => c.id.equals(card.id))).getSingle()).toJson(),
+      card.toJson(),
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
 
   testWidgets('record entry opens a read-only preview with answer gating', (
     tester,

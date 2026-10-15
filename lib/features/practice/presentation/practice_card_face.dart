@@ -4,7 +4,9 @@ import '../../../core/content/card_content.dart';
 import '../../../core/media/local_audio_controller.dart';
 import '../../../core/media/media_repository.dart';
 import '../../decks/domain/cloze_parser.dart';
+import '../../decks/domain/choice_question.dart';
 import '../../decks/domain/note.dart';
+import '../../decks/presentation/choice_card_face.dart';
 import '../../study/domain/study_card.dart';
 
 class PracticeCardFace extends StatelessWidget {
@@ -14,11 +16,13 @@ class PracticeCardFace extends StatelessWidget {
     required this.answerVisible,
     required this.media,
     required this.audio,
+    this.onReveal,
   });
   final StudyCard item;
   final bool answerVisible;
   final MediaRepository media;
   final LocalAudioController audio;
+  final VoidCallback? onReveal;
 
   Widget _content(String source) =>
       CardContent(source: source, media: media, audio: audio);
@@ -26,6 +30,28 @@ class PracticeCardFace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fields = item.note.fields;
+    if (item.note.type.isChoice) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(item.deckName, style: Theme.of(context).textTheme.labelLarge),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: ChoiceCardFace(
+                question: ChoiceQuestion.fromFields(item.note.type, fields),
+                media: media,
+                audio: audio,
+                answerVisible: answerVisible,
+                enabled: onReveal != null,
+                onReveal: onReveal ?? () {},
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     final basic = item.note.type == NoteType.basic;
     final parser = ClozeParser();
     final question = basic

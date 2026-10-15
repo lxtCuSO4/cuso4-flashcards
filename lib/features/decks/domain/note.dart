@@ -1,4 +1,13 @@
-enum NoteType { basic, cloze }
+enum NoteType {
+  basic('基础卡'),
+  cloze('填空卡'),
+  singleChoice('单选题'),
+  multipleChoice('多选题');
+
+  const NoteType(this.label);
+  final String label;
+  bool get isChoice => this == singleChoice || this == multipleChoice;
+}
 
 class Note {
   Note({

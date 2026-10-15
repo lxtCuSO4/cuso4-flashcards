@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import '../../../core/database/app_database.dart';
 import '../../decks/data/note_repository.dart';
 import '../../decks/domain/flashcard.dart';
+import '../../settings/domain/study_settings.dart';
 import '../domain/scheduler.dart';
 import '../domain/study_card.dart';
 import 'fsrs_scheduler.dart';
@@ -31,6 +32,16 @@ class StudyRepository {
   final Duration Function() _timezoneOffset;
   final int dailyNewLimit;
   final int dailyReviewLimit;
+
+  /// Keep a session's preview, queue and rating on one immutable configuration.
+  StudyRepository withSettings(StudySettings settings) => StudyRepository(
+    db,
+    scheduler: FsrsScheduler(desiredRetention: settings.desiredRetention),
+    clock: _clock,
+    timezoneOffset: _timezoneOffset,
+    dailyNewLimit: settings.dailyNewLimit,
+    dailyReviewLimit: settings.dailyReviewLimit,
+  );
 
   DateTime get nowUtc => DateTime.fromMillisecondsSinceEpoch(
     _clock().millisecondsSinceEpoch,
@@ -280,7 +291,7 @@ class StudyRepository {
   }
 
   /// Pin the learning-day offset on first use, so changing device timezone
-  /// cannot grant a second daily allowance. UI configuration comes later.
+  /// cannot grant a second daily allowance.
   Future<({DateTime start, DateTime end})> _studyDay(DateTime now) async {
     const key = 'studyDayOffsetMinutes';
     var setting = await (db.select(

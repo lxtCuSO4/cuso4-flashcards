@@ -27,6 +27,13 @@ class SettingsPage extends ConsumerWidget {
             child: Column(
               children: [
                 ListTile(
+                  leading: const Icon(Icons.tune_outlined),
+                  title: const Text('学习设置'),
+                  subtitle: const Text('每日额度与 FSRS 期望保持率'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/study-settings'),
+                ),
+                ListTile(
                   title: const Text('外观'),
                   subtitle: const Text('浅色、深色或跟随系统'),
                   trailing: DropdownButton<String>(

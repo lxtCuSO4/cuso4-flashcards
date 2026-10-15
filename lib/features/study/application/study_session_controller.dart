@@ -3,12 +3,20 @@ import 'package:flutter/foundation.dart';
 import '../data/study_repository.dart';
 import '../domain/scheduler.dart';
 import '../domain/study_card.dart';
+import '../../settings/domain/study_settings.dart';
 
 /// Owns only presentation/session state. All persisted changes are delegated
 /// to repository transactions, which also protect against other sessions.
 class StudySessionController extends ChangeNotifier {
-  StudySessionController(this.repository, {this.deckId});
-  final StudyRepository repository;
+  StudySessionController(
+    StudyRepository repository, {
+    this.deckId,
+    this.loadSettings,
+  }) : _baseRepository = repository;
+  final StudyRepository _baseRepository;
+  final Future<StudySettings> Function()? loadSettings;
+  StudyRepository? _sessionRepository;
+  StudyRepository get repository => _sessionRepository ?? _baseRepository;
   final int? deckId;
   final _responseClock = Stopwatch();
   bool _disposed = false;
@@ -37,6 +45,13 @@ class StudySessionController extends ChangeNotifier {
     _error = null;
     _notify();
     try {
+      if (_sessionRepository == null) {
+        final load = loadSettings;
+        _sessionRepository = load == null
+            ? _baseRepository
+            : _baseRepository.withSettings(await load());
+        if (_disposed) return;
+      }
       await _loadNext();
       _started = true;
     } catch (error) {

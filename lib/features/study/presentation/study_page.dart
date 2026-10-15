@@ -37,6 +37,7 @@ class _StudyPageState extends ConsumerState<StudyPage>
     _session = StudySessionController(
       ref.read(studyRepositoryProvider),
       deckId: widget.deckId,
+      loadSettings: ref.read(studySettingsRepositoryProvider).load,
     );
     _audio = LocalAudioController(ref.read(mediaRepositoryProvider));
     unawaited(_session.start());

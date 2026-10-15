@@ -5,6 +5,8 @@ import 'package:cuso4_flashcards/features/decks/data/deck_repository.dart';
 import 'package:cuso4_flashcards/features/decks/data/note_repository.dart';
 import 'package:cuso4_flashcards/features/study/data/study_repository.dart';
 import 'package:cuso4_flashcards/features/study/presentation/study_page.dart';
+import 'package:cuso4_flashcards/features/settings/data/study_settings_repository.dart';
+import 'package:cuso4_flashcards/features/settings/domain/study_settings.dart';
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,6 +92,19 @@ void main() {
     expect(find.byTooltip('取消收藏'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
   });
+
+  testWidgets(
+    'study entry reads persisted limits before showing any new card',
+    (tester) async {
+      await StudySettingsRepository(db).save(StudySettings(dailyNewLimit: 0));
+      await open(tester);
+      expect(find.text('当前没有可学习卡片'), findsOneWidget);
+      expect(find.text('显示答案'), findsNothing);
+      expect(await db.select(db.reviewLogs).get(), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
     'large text keeps answer and ratings accessible on the target phone',

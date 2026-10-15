@@ -8,6 +8,7 @@ import '../../features/decks/presentation/card_list_page.dart';
 import '../../features/decks/presentation/note_editor_page.dart';
 import '../../features/records/presentation/records_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
+import '../../features/settings/presentation/study_settings_page.dart';
 import '../../features/import/presentation/import_page.dart';
 import '../../features/study/presentation/study_page.dart';
 import '../../features/favorites/presentation/favorites_page.dart';
@@ -17,6 +18,10 @@ import '../../features/backup/presentation/backup_page.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
+      GoRoute(
+        path: '/study-settings',
+        builder: (_, _) => const StudySettingsPage(),
+      ),
       GoRoute(path: '/backup', builder: (_, _) => const BackupPage()),
       GoRoute(path: '/import', builder: (_, _) => const ImportPage()),
       GoRoute(

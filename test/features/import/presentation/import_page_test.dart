@@ -33,7 +33,12 @@ void main() {
       controller.select(File('chemistry.apkg'));
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [importControllerProvider.overrideWithValue(controller)],
+          overrides: [
+            importControllerProvider.overrideWithValue(controller),
+            importRecoveryNoticeProvider.overrideWith(
+              (ref) => Stream.value(null),
+            ),
+          ],
           child: MaterialApp(theme: AppTheme.light, home: const ImportPage()),
         ),
       );

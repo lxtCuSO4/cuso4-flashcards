@@ -8,6 +8,7 @@ import '../../../app/providers.dart';
 import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/pressable_action.dart';
+import '../../import/presentation/import_recovery_notice.dart';
 import '../domain/home_summary.dart';
 import 'today_overview.dart';
 
@@ -91,7 +92,7 @@ class _HomePageState extends ConsumerState<HomePage>
     final summary = ref.watch(homeSummaryProvider);
     final scheme = Theme.of(context).colorScheme;
     return PageFrame(
-      title: 'CuSO₄闪卡',
+      title: 'Lunar Memory',
       subtitle: '今天，也为记忆留一点时间。',
       actions: [
         IconButton(
@@ -104,197 +105,207 @@ class _HomePageState extends ConsumerState<HomePage>
           icon: const Icon(Icons.refresh),
         ),
       ],
-      child: summary.when(
-        loading: () => const Padding(
-          padding: EdgeInsets.symmetric(vertical: 32),
-          child: Column(
-            children: [
-              LinearProgressIndicator(semanticsLabel: '正在读取今日概览'),
-              SizedBox(height: 16),
-              Text('正在读取本机学习数据…'),
-            ],
-          ),
-        ),
-        error: (error, _) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(error is StateError ? error.message : '今日概览读取失败，请重试。'),
-            const SizedBox(height: 16),
-            PressableAction(
-              label: '重新读取今日概览',
-              onPressed: () => ref.invalidate(homeSummaryProvider),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ImportRecoveryBanner(onRetry: () => context.push('/import')),
+          summary.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Column(
+                children: [
+                  LinearProgressIndicator(semanticsLabel: '正在读取今日概览'),
+                  SizedBox(height: 16),
+                  Text('正在读取本机学习数据…'),
+                ],
+              ),
             ),
-          ],
-        ),
-        data: (snapshot) {
-          _scheduleRefresh(snapshot);
-          final availability = snapshot.availability;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (availability.totalCards == 0) ...[
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ExcludeSemantics(
-                          child: Icon(
-                            Icons.style_outlined,
-                            size: 40,
-                            color: scheme.primary,
-                          ),
+            error: (error, _) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(error is StateError ? error.message : '今日概览读取失败，请重试。'),
+                const SizedBox(height: 16),
+                PressableAction(
+                  label: '重新读取今日概览',
+                  onPressed: () => ref.invalidate(homeSummaryProvider),
+                ),
+              ],
+            ),
+            data: (snapshot) {
+              _scheduleRefresh(snapshot);
+              final availability = snapshot.availability;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (availability.totalCards == 0) ...[
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ExcludeSemantics(
+                              child: Icon(
+                                Icons.style_outlined,
+                                size: 40,
+                                color: scheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Text(
+                              '先放入你的第一张卡片',
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 12),
+                            const Text('导入文字、图片牌组，或自己新建卡片。学习进度只保存在本机。'),
+                          ],
                         ),
-                        const SizedBox(height: 20),
-                        Text(
-                          '先放入你的第一张卡片',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        const SizedBox(height: 12),
-                        const Text('导入文字、图片牌组，或自己新建卡片。学习进度只保存在本机。'),
-                      ],
+                      ),
                     ),
+                    const SizedBox(height: 20),
+                    PressableAction(
+                      label: '导入 .apkg 牌组',
+                      onPressed: () => context.push('/import'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(48, 48),
+                      ),
+                      onPressed: _creatingCard
+                          ? null
+                          : () {
+                              unawaited(FeedbackScope.of(context).tap());
+                              unawaited(_createCard(snapshot));
+                            },
+                      child: const Text('新建第一张卡片'),
+                    ),
+                  ] else ...[
+                    TodayOverview(summary: snapshot),
+                    const SizedBox(height: 20),
+                    PressableAction(
+                      label: availability.availableCards > 0
+                          ? '开始今日学习'
+                          : '暂时没有可学卡片',
+                      onPressed: availability.availableCards == 0
+                          ? null
+                          : () async {
+                              await context.push('/study');
+                              if (mounted) ref.invalidate(homeSummaryProvider);
+                            },
+                    ),
+                    const SizedBox(height: 8),
+                    if (availability.availableCards == 0)
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(48, 48),
+                        ),
+                        onPressed: () => _go('/study-settings'),
+                        child: const Text('调整学习设置'),
+                      ),
+                    const SizedBox(height: 16),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '今日已学 ${snapshot.studiedCards} 张',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '已评分 ${snapshot.ratingCount} 次 · 当前连续 ${snapshot.streak} 天',
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              style: TextButton.styleFrom(
+                                minimumSize: const Size(48, 48),
+                              ),
+                              onPressed: () => _go('/records', replace: true),
+                              child: const Text('查看学习记录'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 32),
+                  Text('本机知识库', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${availability.totalCards} 张卡片 · ${snapshot.deckCount} 个牌组（含章节）',
+                    style: TextStyle(color: scheme.onSurfaceVariant),
                   ),
-                ),
-                const SizedBox(height: 20),
-                PressableAction(
-                  label: '导入 .apkg 牌组',
-                  onPressed: () => context.push('/import'),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                  onPressed: _creatingCard
-                      ? null
-                      : () {
-                          unawaited(FeedbackScope.of(context).tap());
-                          unawaited(_createCard(snapshot));
-                        },
-                  child: const Text('新建第一张卡片'),
-                ),
-              ] else ...[
-                TodayOverview(summary: snapshot),
-                const SizedBox(height: 20),
-                PressableAction(
-                  label: availability.availableCards > 0
-                      ? '开始今日学习'
-                      : '暂时没有可学卡片',
-                  onPressed: availability.availableCards == 0
-                      ? null
-                      : () async {
-                          await context.push('/study');
-                          if (mounted) ref.invalidate(homeSummaryProvider);
-                        },
-                ),
-                const SizedBox(height: 8),
-                if (availability.availableCards == 0)
+                  const SizedBox(height: 16),
+                  if (snapshot.decks.isNotEmpty)
+                    Card(
+                      margin: EdgeInsets.zero,
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          for (final deck in snapshot.decks)
+                            InkWell(
+                              onTap: () => _go('/decks/${deck.id}'),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    ExcludeSemantics(
+                                      child: Icon(
+                                        Icons.layers_outlined,
+                                        color: scheme.primary,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            deck.name,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${deck.cardCount} 张卡片 · 含子章节',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    const ExcludeSemantics(
+                                      child: Icon(Icons.chevron_right),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 8),
                   TextButton(
                     style: TextButton.styleFrom(
                       minimumSize: const Size(48, 48),
                     ),
-                    onPressed: () => _go('/study-settings'),
-                    child: const Text('调整学习设置'),
+                    onPressed: () => _go('/decks', replace: true),
+                    child: const Text('查看全部牌组'),
                   ),
-                const SizedBox(height: 16),
-                Card(
-                  margin: EdgeInsets.zero,
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '今日已学 ${snapshot.studiedCards} 张',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '已评分 ${snapshot.ratingCount} 次 · 当前连续 ${snapshot.streak} 天',
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          style: TextButton.styleFrom(
-                            minimumSize: const Size(48, 48),
-                          ),
-                          onPressed: () => _go('/records', replace: true),
-                          child: const Text('查看学习记录'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 32),
-              Text('本机知识库', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Text(
-                '${availability.totalCards} 张卡片 · ${snapshot.deckCount} 个牌组（含章节）',
-                style: TextStyle(color: scheme.onSurfaceVariant),
-              ),
-              const SizedBox(height: 16),
-              if (snapshot.decks.isNotEmpty)
-                Card(
-                  margin: EdgeInsets.zero,
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    children: [
-                      for (final deck in snapshot.decks)
-                        InkWell(
-                          onTap: () => _go('/decks/${deck.id}'),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                ExcludeSemantics(
-                                  child: Icon(
-                                    Icons.layers_outlined,
-                                    color: scheme.primary,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        deck.name,
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium,
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${deck.cardCount} 张卡片 · 含子章节',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                const ExcludeSemantics(
-                                  child: Icon(Icons.chevron_right),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 8),
-              TextButton(
-                style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                onPressed: () => _go('/decks', replace: true),
-                child: const Text('查看全部牌组'),
-              ),
-            ],
-          );
-        },
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }

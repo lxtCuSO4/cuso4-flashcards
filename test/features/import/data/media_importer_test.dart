@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:cuso4_flashcards/features/import/data/media_importer.dart';
@@ -37,6 +38,16 @@ void main() {
       );
       expect(await prepared.commit(), 1);
       final path = prepared.assetsByName['a.png']!.relativePath;
+      expect(
+        jsonDecode(
+          await File('${prepared.stagingDirectory.path}/journal.json')
+              .readAsString(),
+        ),
+        {
+          'version': 1,
+          'newFiles': [path],
+        },
+      );
       expect(
         await File('${target.path}${Platform.pathSeparator}$path')
             .readAsBytes(),

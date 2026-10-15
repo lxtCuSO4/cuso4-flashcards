@@ -16,7 +16,7 @@ class BackupException implements Exception {
 
 const invalidBackup = BackupException(
   BackupErrorCode.invalidArchive,
-  '备份损坏或不是 CuSO₄闪卡备份，请重新选择文件。',
+  '备份损坏或不是 Lunar Memory 备份，请重新选择文件。',
 );
 final backupHash = RegExp(r'^[a-f0-9]{64}$');
 const maxBackupBytes = 2 * 1024 * 1024 * 1024;
@@ -71,7 +71,7 @@ class BackupManifest {
             value['databaseSchemaVersion'] > 1) {
       throw const BackupException(
         BackupErrorCode.unsupportedVersion,
-        '该备份来自较新版应用，请更新 CuSO₄闪卡后恢复。',
+        '该备份来自较新版应用，请更新 Lunar Memory 后恢复。',
       );
     }
     if (value['formatVersion'] != 1 ||

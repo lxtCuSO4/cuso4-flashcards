@@ -3,11 +3,11 @@ import 'dart:io';
 
 import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
-import 'package:html/parser.dart' as html;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
+import 'media_references.dart';
 import 'prepared_image.dart';
 
 enum MediaKind { image, audio }
@@ -24,7 +24,6 @@ class MediaRepository {
   final AppDatabase db;
   final Directory? directory;
   static final _hash = RegExp(r'^media:([a-f0-9]{64})$');
-  static final _sound = RegExp(r'\[sound:media:([a-f0-9]{64})\]');
 
   /// Keeps image rows and note references in one transaction, excluding GC.
   Future<T> saveImages<T>(
@@ -142,20 +141,7 @@ class MediaRepository {
     }
   }
 
-  Set<String> references(Map<String, String> fields) {
-    final result = <String>{};
-    for (final value in fields.values) {
-      final fragment = html.parseFragment(value);
-      for (final image in fragment.querySelectorAll('img')) {
-        final match = _hash.firstMatch(image.attributes['src'] ?? '');
-        if (match != null) result.add(match[1]!);
-      }
-      for (final match in _sound.allMatches(fragment.text ?? '')) {
-        result.add(match[1]!);
-      }
-    }
-    return result;
-  }
+  Set<String> references(Map<String, String> fields) => mediaReferences(fields);
 
   Map<String, String> fieldsFromJson(String value) =>
       Map<String, String>.from(jsonDecode(value) as Map);

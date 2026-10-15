@@ -68,7 +68,7 @@ object LearningReminder {
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         manager(context).notify(ID, Notification.Builder(context, CHANNEL).setSmallIcon(R.drawable.ic_stat_cards)
             .setContentTitle(if (test) "学习提醒测试" else "该复习一下了")
-            .setContentText("打开 CuSO₄闪卡，花一点时间巩固今天的知识。")
+            .setContentText("打开 Lunar Memory，花一点时间巩固今天的知识。")
             .setContentIntent(open).setAutoCancel(true).build())
     }
 }

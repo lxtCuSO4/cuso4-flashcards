@@ -12,7 +12,7 @@ class BackupPlatform {
   }
 
   Future<File?> pickRestoreFile() async {
-    final result = await FilePicker.pickFile(dialogTitle: '选择 CuSO₄闪卡备份');
+    final result = await FilePicker.pickFile(dialogTitle: '选择 Lunar Memory 备份');
     final path = result?.path;
     return path == null ? null : File(path);
   }

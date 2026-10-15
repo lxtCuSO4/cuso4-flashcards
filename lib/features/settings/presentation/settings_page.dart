@@ -93,7 +93,7 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: 20),
           const ListTile(
-            title: Text('CuSO₄闪卡 · 开发版'),
+            title: Text('Lunar Memory · 开发版'),
             subtitle: Text('离线导入与学习，本机保存全部数据。增强功能持续完善中。'),
           ),
         ],

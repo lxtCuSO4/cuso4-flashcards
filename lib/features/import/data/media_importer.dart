@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crypto/crypto.dart';
@@ -36,6 +37,20 @@ class PreparedMediaImport {
   final Set<String> _newFiles = {};
 
   Future<int> commit() async {
+    final candidates = <String>[];
+    for (final hash in assetsByName.values.map((a) => a.contentHash).toSet()) {
+      if (!await File(p.join(mediaDirectory.path, hash)).exists()) {
+        candidates.add(hash);
+      }
+    }
+    // Persist ownership before the first rename: a killed process cannot run
+    // rollback(), and SQLite cannot roll back filesystem moves.
+    final journal = File(p.join(stagingDirectory.path, 'journal.next'));
+    await journal.writeAsString(
+      jsonEncode({'version': 1, 'newFiles': candidates}),
+      flush: true,
+    );
+    await journal.rename(p.join(stagingDirectory.path, 'journal.json'));
     for (final hash
         in assetsByName.values.map((asset) => asset.contentHash).toSet()) {
       final target = File(p.join(mediaDirectory.path, hash));

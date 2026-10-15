@@ -1,4 +1,4 @@
-# CuSO₄闪卡开发进度
+# Lunar Memory 开发进度（原 CuSO₄闪卡）
 
 更新日期：2026-10-15（Asia/Shanghai）。
 
@@ -265,7 +265,27 @@
 - APK SHA-256：21BE9A2D38156EACFDBC8E0D7A3AA3218CDAA53333CC24B6C7B766D2055908EC。aapt2 确认 com.cuso4.flashcards／1.0.0／1、minSdk 26、targetSdk 36、仅 arm64-v8a、非 debuggable；apksigner v2 验证通过，仍为原测试证书 7729944fb7a11b56489b12f9d8b7ba71e9fe53ef873200445a92892b01a4ea2a，可覆盖安装。
 - APK 内 libapp.so 与本次 stripped 产物哈希一致：774188F6E87A235C2245BC137E48A3A82AA0CCDF24E9C427F7F42CC790621BFE。旧编辑器 APK 保留，哈希仍为 55C2012749C5DCD3CE0F296064AD6869B6352A5495693C110E8C613F06BFA211。未进行真机安装或通知送达／开机恢复／多机型测试；新版实际导出包仍待手机验收。
 
-## 下一步（本地工具与新版导入后）
+## 2026-10-15 导入中断恢复与 Lunar Memory 品牌
+
+- 完成后台数据库启动恢复：保留现有备份恢复优先级，只处理 schema 1，将旧 running 导入标记为 interrupted，不重启导入、不保存外部源路径。
+- 媒体提交前持久保存候选新文件日志；启动仅清理可识别暂存与日志确认的孤立文件。数据库媒体记录和实际笔记引用均可保护图片；无日志的旧暂存不推测根目录文件归属。未知目录、链接和异常日志保留，失败不阻断学习。
+- 首页／导入页复用可确认提示，提供重选原文件；提示跨启动保留，确认时比较原始值避免抹去新提示。清理问题解决后不继续显示过期的清理警告。
+- 应用户补充要求改名 **Lunar Memory**，同步 Android 标签、应用／首页标题、设置及提醒／备份提示。保留包名 `com.cuso4.flashcards`、schema、原测试签名与旧备份格式，以便覆盖升级。
+- 用户图片复制至 `assets/branding/launcher-source.jpg`，桌面源图未改；Pillow 脚本生成五密度普通／圆形图标和 Android 8+ 自适应图标，检查圆形／圆角预览。通知小图标继续独立使用。
+- 集中 **91 项测试通过**：真实 SQLite 事务丢失与生产连接启动、FSRS 数据／共享媒体保护、已完成任务保留、异常日志／未知目录、幂等／提示持久确认、深色大字体及导入／媒体／备份／首页回归。用户 OS 牌组再次验证 **520 笔记／670 张新卡**。`flutter analyze --no-pub` 无问题。
+- 一次离线 ARM64 release 构建成功，Kotlin 与 release lint 通过。冻结包 `build/releases/lunar-memory-arm64.apk`：**22,560,462 字节（22.6 MB／21.5 MiB）**；SHA256 `B477A2F6818EA5B261B1C3965F13902D45E63F46B95A214A7D458DB598189D73`。
+- APK 名称已核对为 Lunar Memory，minSdk 26、targetSdk 36、versionName 1.0.0／code 1、仅 arm64-v8a；普通／roundIcon 均指向 adaptive 资源，包内三种 xxxhdpi 图标与生成源逐像素相同。
+- APK 内 `libapp.so` 与本轮生成代码哈希一致：`F9F32A0738345A1FCB4AD767D6C7EDB94C063302F9308DE676F223CE5F50BAB6`；签名证书 SHA256 与之前一致：`7729944fb7a11b56489b12f9d8b7ba71e9fe53ef873200445a92892b01a4ea2a`。
+- 上一版 local-tools APK 哈希仍为 `21BE9A2D38156EACFDBC8E0D7A3AA3218CDAA53333CC24B6C7B766D2055908EC`，更早 editor-images 包仍为 `55C2012749C5DCD3CE0F296064AD6869B6352A5495693C110E8C613F06BFA211`。保留旧包、当前分支和工作树，不上传 GitHub；依用户预算约束直接审阅，无代理审查。
+- 电脑验证已完成；真实安卓强停／桌面图标缓存、正式发布签名及多机型兼容仍待验收，不能标记为已覆盖。
+
+## 下一步（导入恢复与品牌更新后）
+
+1. 直接覆盖安装 `lunar-memory-arm64.apk`，无需卸载或重导已有牌组。核对名称、铃仙图标和原数据。
+2. 按 `docs/import-recovery.md`，先备份，再使用临时测试牌组验收导入强停后的提示／重试与确认隐藏。
+3. 优先处理真实手机反馈；保持 GitHub 上传暂缓，正式发布签名和多机型兼容待后续安排，不自动追加新功能。
+
+## 先前下一步（本地工具与新版导入后）
 
 1. 覆盖安装本轮 APK，保留原数据；按 docs/local-tools.md 验证搜索、批量与存储操作。
 2. 在手机测试通知权限／测试通知／息屏送达／重启恢复，以及真实新版压缩 .apkg。优先处理真实反馈。

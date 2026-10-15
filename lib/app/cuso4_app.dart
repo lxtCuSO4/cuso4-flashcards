@@ -14,7 +14,7 @@ class Cuso4App extends ConsumerWidget {
     final theme = ref.watch(settingsProvider).value?['theme'];
     final strength = ref.watch(settingsProvider).value?['feedback'];
     return MaterialApp.router(
-      title: 'CuSO₄闪卡',
+      title: 'Lunar Memory',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

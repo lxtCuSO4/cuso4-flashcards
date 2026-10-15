@@ -7,7 +7,7 @@ import 'package:cuso4_flashcards/core/database/app_database.dart';
 import 'package:drift/native.dart';
 
 void main() {
-  testWidgets('shows the CuSO₄ brand with Material 3 and both themes', (
+  testWidgets('shows Lunar Memory with Material 3 and both themes', (
     tester,
   ) async {
     final db = AppDatabase(NativeDatabase.memory());
@@ -29,11 +29,11 @@ void main() {
     );
     await tester.pumpAndSettle();
     final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
-    expect(app.title, 'CuSO₄闪卡');
+    expect(app.title, 'Lunar Memory');
     expect(app.theme!.useMaterial3, isTrue);
     expect(app.darkTheme!.brightness, Brightness.dark);
     expect(app.themeMode, ThemeMode.system);
-    expect(find.text('CuSO₄闪卡'), findsOneWidget);
+    expect(find.text('Lunar Memory'), findsOneWidget);
     expect(find.byType(SafeArea), findsWidgets);
     await tester.tap(find.text('牌组').last);
     await tester.pumpAndSettle();

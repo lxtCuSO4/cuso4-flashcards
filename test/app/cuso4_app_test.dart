@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cuso4_flashcards/app/providers.dart';
+import 'package:cuso4_flashcards/core/database/app_database.dart';
+import 'package:drift/native.dart';
 
 void main() {
   testWidgets('shows the CuSO₄ brand with Material 3 and both themes', (
     tester,
   ) async {
+    final db = AppDatabase(NativeDatabase.memory());
+    addTearDown(db.close);
     tester.view.physicalSize = const Size(1220, 2712);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.resetPhysicalSize);
@@ -15,6 +19,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          databaseProvider.overrideWithValue(db),
           decksProvider.overrideWith((ref) => Stream.value([])),
           cardCountsProvider.overrideWith((ref) => Stream.value({})),
           settingsProvider.overrideWith((ref) => Stream.value({})),
@@ -43,5 +48,6 @@ void main() {
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 }

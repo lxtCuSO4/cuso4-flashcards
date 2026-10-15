@@ -8,6 +8,7 @@ import '../../decks/domain/flashcard.dart';
 import '../../settings/domain/study_settings.dart';
 import '../domain/scheduler.dart';
 import '../domain/study_card.dart';
+import '../domain/study_availability.dart';
 import 'fsrs_scheduler.dart';
 
 class StudyRepository {
@@ -48,21 +49,9 @@ class StudyRepository {
     isUtc: true,
   );
 
-  /// The same daily limits apply independently to each note's owning deck.
-  /// Window ranks bound results even when many decks contain overdue cards.
-  Future<List<Flashcard>> loadQueue({int? deckId, int limit = 50}) async {
-    if (limit < 1 || limit > 500) throw ArgumentError('学习批次大小须为 1–500');
-    if (deckId != null) {
-      final deck = await (db.select(
-        db.decks,
-      )..where((d) => d.id.equals(deckId))).getSingleOrNull();
-      if (deck == null) throw StateError('牌组不存在');
-    }
-    final now = nowUtc;
-    final day = await _studyDay(now);
-    final rows = await db
-        .customSelect(
-          '''
+  // Share the exact candidate set and quota predicate between the bounded
+  // learning queue and the unbounded, read-only homepage count.
+  static const _candidateCtes = '''
       WITH RECURSIVE scope(id) AS (
         SELECT id FROM decks WHERE (? IS NULL OR id = ?)
         UNION ALL
@@ -78,16 +67,85 @@ class StudyRepository {
           COALESCE(d.review_used, 0) AS review_used,
           CASE WHEN c.state = 2 THEN 0 WHEN c.state IN (1, 3) THEN 1 ELSE 2 END AS priority
         FROM cards c JOIN notes n ON n.id = c.note_id LEFT JOIN daily d ON d.deck_id = n.deck_id
-        WHERE n.deck_id IN (SELECT id FROM scope) AND c.due_at_utc <= ? AND c.state BETWEEN 0 AND 3
+        WHERE n.deck_id IN (SELECT id FROM scope) AND c.state BETWEEN 0 AND 3
       ), ranked AS (
         SELECT *, ROW_NUMBER() OVER (PARTITION BY deck_id, state ORDER BY due_at_utc, id) AS deck_position
-        FROM eligible
+        FROM eligible WHERE due_at_utc <= ?
       )
+    ''';
+  static const _quotaPredicate = '''state IN (1, 3)
+        OR (state = 0 AND deck_position <= MAX(0, ? - new_used))
+        OR (state = 2 AND deck_position <= MAX(0, ? - review_used))''';
+
+  Future<StudyAvailability> loadAvailability() => db.transaction(() async {
+    final now = nowUtc;
+    final day = await _studyDay(now, pin: false);
+    final row = await db
+        .customSelect(
+          '''$_candidateCtes
+      SELECT COUNT(CASE WHEN state = 0 THEN 1 END) AS new_count,
+        COUNT(CASE WHEN state = 2 THEN 1 END) AS review_count,
+        COUNT(CASE WHEN state IN (1, 3) THEN 1 END) AS learning_count,
+        (SELECT COUNT(*) FROM ranked WHERE state = 0) - COUNT(CASE WHEN state = 0 THEN 1 END) AS blocked_new,
+        (SELECT COUNT(*) FROM ranked WHERE state = 2) - COUNT(CASE WHEN state = 2 THEN 1 END) AS blocked_review,
+        (SELECT COUNT(*) FROM cards) AS total,
+        (SELECT MIN(due_at_utc) FROM eligible WHERE due_at_utc > ? AND (
+          state IN (1, 3) OR (state = 0 AND new_used < ?) OR (state = 2 AND review_used < ?)
+        )) AS next_due
+      FROM ranked WHERE $_quotaPredicate
+    ''',
+          variables: [
+            const Variable<int>(null),
+            const Variable<int>(null),
+            const Variable<int>(null),
+            Variable(day.start.millisecondsSinceEpoch),
+            Variable(day.end.millisecondsSinceEpoch),
+            Variable(now.millisecondsSinceEpoch),
+            Variable(now.millisecondsSinceEpoch),
+            Variable(dailyNewLimit),
+            Variable(dailyReviewLimit),
+            Variable(dailyNewLimit),
+            Variable(dailyReviewLimit),
+          ],
+          readsFrom: {db.decks, db.notes, db.cards, db.reviewLogs},
+        )
+        .getSingle();
+    final nextDue = row.readNullable<int>('next_due');
+    return StudyAvailability(
+      today: day.start.add(Duration(minutes: day.offsetMinutes)),
+      dayStartUtc: day.start,
+      dayEndUtc: day.end,
+      offsetMinutes: day.offsetMinutes,
+      newCards: row.read<int>('new_count'),
+      reviews: row.read<int>('review_count'),
+      learning: row.read<int>('learning_count'),
+      blockedNewCards: row.read<int>('blocked_new'),
+      blockedReviews: row.read<int>('blocked_review'),
+      totalCards: row.read<int>('total'),
+      nextDueAtUtc: nextDue == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(nextDue, isUtc: true),
+    );
+  });
+
+  /// The same daily limits apply independently to each note's owning deck.
+  /// Window ranks bound results even when many decks contain overdue cards.
+  Future<List<Flashcard>> loadQueue({int? deckId, int limit = 50}) async {
+    if (limit < 1 || limit > 500) throw ArgumentError('学习批次大小须为 1–500');
+    if (deckId != null) {
+      final deck = await (db.select(
+        db.decks,
+      )..where((d) => d.id.equals(deckId))).getSingleOrNull();
+      if (deck == null) throw StateError('牌组不存在');
+    }
+    final now = nowUtc;
+    final day = await _studyDay(now);
+    final rows = await db
+        .customSelect(
+          '''$_candidateCtes
       SELECT ranked.*, CASE WHEN f.card_id IS NULL THEN 0 ELSE 1 END AS is_favorite
       FROM ranked LEFT JOIN favorites f ON f.card_id = ranked.id
-      WHERE state IN (1, 3)
-        OR (state = 0 AND deck_position <= MAX(0, ? - new_used))
-        OR (state = 2 AND deck_position <= MAX(0, ? - review_used))
+      WHERE $_quotaPredicate
       ORDER BY priority, due_at_utc, id LIMIT ?
     ''',
           variables: [
@@ -266,7 +324,7 @@ class StudyRepository {
 
   Future<({int newCards, int reviews})> _dailyUsage(
     int deckId,
-    ({DateTime start, DateTime end}) day,
+    ({DateTime start, DateTime end, int offsetMinutes}) day,
   ) async {
     final row = await db
         .customSelect(
@@ -292,12 +350,15 @@ class StudyRepository {
 
   /// Pin the learning-day offset on first use, so changing device timezone
   /// cannot grant a second daily allowance.
-  Future<({DateTime start, DateTime end})> _studyDay(DateTime now) async {
+  Future<({DateTime start, DateTime end, int offsetMinutes})> _studyDay(
+    DateTime now, {
+    bool pin = true,
+  }) async {
     const key = 'studyDayOffsetMinutes';
     var setting = await (db.select(
       db.appSettings,
     )..where((s) => s.key.equals(key))).getSingleOrNull();
-    if (setting == null) {
+    if (setting == null && pin) {
       final minutes = _timezoneOffset().inMinutes;
       if (minutes < -840 || minutes > 840) throw ArgumentError('学习日时区偏移无效');
       await db
@@ -313,7 +374,14 @@ class StudyRepository {
         db.appSettings,
       )..where((s) => s.key.equals(key))).getSingle();
     }
-    final minutes = jsonDecode(setting.valueJson);
+    Object? minutes;
+    try {
+      minutes = setting == null
+          ? _timezoneOffset().inMinutes
+          : jsonDecode(setting.valueJson);
+    } on FormatException {
+      throw StateError('学习日设置无效');
+    }
     if (minutes is! int || minutes < -840 || minutes > 840) {
       throw StateError('学习日设置无效');
     }
@@ -324,6 +392,10 @@ class StudyRepository {
       local.month,
       local.day,
     ).subtract(offset);
-    return (start: start, end: start.add(const Duration(days: 1)));
+    return (
+      start: start,
+      end: start.add(const Duration(days: 1)),
+      offsetMinutes: minutes,
+    );
   }
 }

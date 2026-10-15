@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../app/providers.dart';
 import '../../app/theme/app_colors.dart';
 
 enum TouhouPlace {
@@ -18,8 +16,8 @@ enum TouhouPlace {
   final IconData icon;
 }
 
-/// Optional page decoration, independent of functional titles and card content.
-class TouhouTag extends ConsumerWidget {
+/// Fixed page decoration, independent of settings and card content.
+class TouhouTag extends StatelessWidget {
   const TouhouTag(
     this.place, {
     super.key,
@@ -30,11 +28,7 @@ class TouhouTag extends ConsumerWidget {
   final EdgeInsetsGeometry margin;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider).value;
-    if (settings == null || settings['touhouDecorations'] == 'false') {
-      return const SizedBox.shrink();
-    }
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
     final foreground = dark

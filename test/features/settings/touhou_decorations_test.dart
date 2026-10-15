@@ -46,15 +46,25 @@ void main() {
   }
 
   testWidgets(
-    'decoration switch persists across app restart and updates themed pages',
+    'fixed decorations ignore legacy opt-out across pages and app restarts',
     (tester) async {
       tester.view.physicalSize = const Size(1220, 2712);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
+      await db
+          .into(db.appSettings)
+          .insert(
+            AppSettingsCompanion.insert(
+              key: 'touhouDecorations',
+              valueJson: 'false',
+            ),
+          );
       await open(tester);
       expect(find.text('寺子屋'), findsOneWidget);
       await go(tester, '/decks');
+      expect(find.text('寺子屋 · 藏书'), findsOneWidget);
+      await go(tester, '/decks/$deck');
       expect(find.text('寺子屋 · 藏书'), findsOneWidget);
       await go(tester, '/practice/$deck');
       expect(find.text('迷途竹林'), findsOneWidget);
@@ -62,13 +72,30 @@ void main() {
       expect(find.text('月下手记'), findsOneWidget);
       await go(tester, '/favorites');
       expect(find.text('铃仙的书签'), findsOneWidget);
+      await go(tester, '/favorite-practice');
+      expect(find.text('铃仙的书签'), findsOneWidget);
+      await go(tester, '/study?deckId=$deck');
+      expect(find.text('寺子屋 · 温习'), findsOneWidget);
       await go(tester, '/settings');
       expect(find.text('永远亭'), findsOneWidget);
-      final toggle = find.text('东方主题装饰');
-      await tester.ensureVisible(toggle);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(find.text('永远亭'), findsNothing);
+      expect(find.text('东方主题装饰'), findsNothing);
+      expect(find.byType(SwitchListTile), findsNothing);
+      await close(tester);
+      await db
+          .into(db.appSettings)
+          .insert(AppSettingsCompanion.insert(key: 'theme', valueJson: 'dark'));
+      tester.view.physicalSize = const Size(1125, 2436);
+      tester.platformDispatcher.textScaleFactorTestValue = 1.8;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      await open(tester);
+      expect(find.text('寺子屋'), findsOneWidget);
+      expect(find.text('导入 .apkg 牌组'), findsOneWidget);
+      await go(tester, '/practice/$deck');
+      expect(find.text('迷途竹林'), findsOneWidget);
+      expect(find.text('开始随机练习'), findsOneWidget);
+      await go(tester, '/settings');
+      expect(find.text('永远亭'), findsOneWidget);
+      expect(find.text('东方主题装饰'), findsNothing);
       expect(
         (await (db.select(
               db.appSettings,
@@ -76,57 +103,9 @@ void main() {
             .valueJson,
         'false',
       );
-      await close(tester);
-      await open(tester);
-      expect(find.text('寺子屋'), findsNothing);
-      expect(find.text('导入 .apkg 牌组'), findsOneWidget);
-      await go(tester, '/practice/$deck');
-      expect(find.text('迷途竹林'), findsNothing);
-      expect(find.text('开始随机练习'), findsOneWidget);
-      await go(tester, '/settings');
-      await tester.ensureVisible(toggle);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(find.text('永远亭'), findsOneWidget);
-      await go(tester, '/');
-      expect(find.text('寺子屋'), findsOneWidget);
-      await close(tester);
-    },
-  );
-
-  testWidgets(
-    'failed setting save keeps decorations on in dark large-text layouts',
-    (tester) async {
-      tester.view.physicalSize = const Size(1125, 2436);
-      tester.view.devicePixelRatio = 3;
-      tester.platformDispatcher.textScaleFactorTestValue = 1.8;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-      await db
-          .into(db.appSettings)
-          .insert(AppSettingsCompanion.insert(key: 'theme', valueJson: 'dark'));
-      await db.customStatement(
-        "CREATE TRIGGER fail_decoration BEFORE INSERT ON app_settings WHEN NEW.key = 'touhouDecorations' BEGIN SELECT RAISE(FAIL, 'write failed'); END",
-      );
-      await open(tester);
-      await go(tester, '/settings');
-      final toggle = find.text('东方主题装饰');
-      await tester.ensureVisible(toggle);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(find.text('永远亭'), findsOneWidget);
-      expect(find.text('操作未完成，请重试。'), findsOneWidget);
-      expect(
-        (await (db.select(
-          db.appSettings,
-        )..where((s) => s.key.equals('touhouDecorations'))).get()),
-        isEmpty,
-      );
       expect(tester.takeException(), isNull);
       tester.view.physicalSize = const Size(2436, 1125);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(toggle);
       expect(tester.takeException(), isNull);
       await close(tester);
     },

@@ -1,5 +1,7 @@
 # Lightweight Touhou Labels Implementation Plan
 
+> 历史实施记录：用户随后要求固定保留东方主题，以下装饰开关设计已由 `2026-10-15-fixed-touhou-labels.md` 替代。当前行为与验收见 `docs/touhou-labels.md`。
+
 > **For agentic workers:** 使用 superpowers:executing-plans 在当前会话顺序执行。用户已认可预览，预算约束优先，不派发代理、不重复确认。
 
 **Goal:** 将获认可的东方轻量题签加入现有页面，提供可持久关闭的开关，交付可覆盖安装的 APK。

@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../app/providers.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/touhou_tag.dart';
-import 'touhou_decoration_switch.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -51,7 +50,6 @@ class SettingsPage extends ConsumerWidget {
                     },
                   ),
                 ),
-                const TouhouDecorationSwitch(),
                 ListTile(
                   title: const Text('触觉反馈'),
                   subtitle: const Text('按键确认的震动强度'),

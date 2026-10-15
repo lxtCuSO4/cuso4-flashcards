@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:html/parser.dart' as html;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../database/app_database.dart';
+import 'prepared_image.dart';
 
 enum MediaKind { image, audio }
 
@@ -23,6 +25,87 @@ class MediaRepository {
   final Directory? directory;
   static final _hash = RegExp(r'^media:([a-f0-9]{64})$');
   static final _sound = RegExp(r'\[sound:media:([a-f0-9]{64})\]');
+
+  /// Keeps image rows and note references in one transaction, excluding GC.
+  Future<T> saveImages<T>(
+    Iterable<PreparedImage> images,
+    Map<String, String> fields,
+    Future<T> Function() save,
+  ) {
+    final used = references(fields);
+    final selected = {
+      for (final image in images)
+        if (used.contains(image.hash)) image.hash: image,
+    };
+    if (selected.isEmpty) return save();
+    return db.transaction(() async {
+      final root =
+          directory ??
+          Directory(
+            p.join((await getApplicationSupportDirectory()).path, 'media'),
+          );
+      await root.create(recursive: true);
+      final canonicalRoot = await root.resolveSymbolicLinks();
+      final created = <File>[];
+      try {
+        for (final image in selected.values) {
+          final file = File(p.join(canonicalRoot, image.hash));
+          final type = await FileSystemEntity.type(
+            file.path,
+            followLinks: false,
+          );
+          if (type == FileSystemEntityType.notFound) {
+            // A killed app can leave a complete orphan, never a partial hash file.
+            final staging = await root.createTemp('.editor-');
+            try {
+              final staged = File(p.join(staging.path, image.hash));
+              await staged.writeAsBytes(image.bytes, flush: true);
+              await staged.rename(file.path);
+              created.add(file);
+            } finally {
+              await staging.delete(recursive: true);
+            }
+          } else if (type != FileSystemEntityType.file ||
+              p.dirname(await file.resolveSymbolicLinks()) != canonicalRoot ||
+              (await sha256.bind(file.openRead()).first).toString() !=
+                  image.hash) {
+            throw StateError('本地图片文件异常，请重试或恢复备份。');
+          }
+          final existing = await (db.select(
+            db.media,
+          )..where((m) => m.contentHash.equals(image.hash))).getSingleOrNull();
+          if (existing == null) {
+            await db
+                .into(db.media)
+                .insert(
+                  MediaCompanion.insert(
+                    contentHash: image.hash,
+                    originalName: image.name,
+                    relativePath: image.hash,
+                    mimeType: image.mimeType,
+                    byteLength: image.bytes.length,
+                    createdAtUtc: DateTime.now().toUtc().millisecondsSinceEpoch,
+                  ),
+                );
+          } else if (existing.relativePath != image.hash ||
+              existing.mimeType != image.mimeType ||
+              existing.byteLength != image.bytes.length) {
+            throw StateError('本地图片记录异常，请重试或恢复备份。');
+          }
+        }
+        return await save();
+      } catch (_) {
+        for (final file in created) {
+          try {
+            if (await file.exists()) await file.delete();
+          } on FileSystemException {
+            /* Retry save can reuse the hash file. */
+          }
+        }
+        rethrow;
+      }
+    });
+  }
 
   /// Never turns arbitrary card URLs or filenames into filesystem access.
   Future<LocalMedia?> resolve(String token, {required MediaKind kind}) async {

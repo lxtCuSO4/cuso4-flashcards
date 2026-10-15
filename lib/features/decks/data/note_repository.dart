@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../../core/media/media_repository.dart';
+import '../../../core/media/prepared_image.dart';
 import '../domain/cloze_parser.dart';
 import '../domain/note.dart';
 
@@ -28,49 +29,68 @@ class NoteRepository {
     required String front,
     String back = '',
     Iterable<String> tags = const [],
-  }) => _create(deckId, NoteType.basic, {'front': front, 'back': back}, tags);
+    Iterable<PreparedImage> images = const [],
+  }) => _create(
+    deckId,
+    NoteType.basic,
+    {'front': front, 'back': back},
+    tags,
+    images,
+  );
 
   Future<int> createClozeNote({
     required int deckId,
     required String text,
     String extra = '',
     Iterable<String> tags = const [],
-  }) => _create(deckId, NoteType.cloze, {'text': text, 'extra': extra}, tags);
+    Iterable<PreparedImage> images = const [],
+  }) => _create(
+    deckId,
+    NoteType.cloze,
+    {'text': text, 'extra': extra},
+    tags,
+    images,
+  );
 
   Future<int> _create(
     int deckId,
     NoteType type,
     Map<String, String> fields,
     Iterable<String> tags,
-  ) => db.transaction(() async {
-    final indexes = _indexes(type, fields);
-    final now = _now;
-    final id = await db
-        .into(db.notes)
-        .insert(
-          NotesCompanion.insert(
-            deckId: deckId,
-            noteType: type.index,
-            fieldsJson: jsonEncode(fields),
-            createdAtUtc: now,
-            modifiedAtUtc: now,
-          ),
-        );
-    for (final index in indexes) {
-      await db
-          .into(db.cards)
+    Iterable<PreparedImage> images,
+  ) => media.saveImages(
+    images,
+    fields,
+    () => db.transaction(() async {
+      final indexes = _indexes(type, fields);
+      final now = _now;
+      final id = await db
+          .into(db.notes)
           .insert(
-            CardsCompanion.insert(
-              noteId: id,
-              clozeIndex: Value(index),
-              dueAtUtc: now,
+            NotesCompanion.insert(
+              deckId: deckId,
+              noteType: type.index,
+              fieldsJson: jsonEncode(fields),
+              createdAtUtc: now,
+              modifiedAtUtc: now,
             ),
           );
-    }
-    await _writeTags(id, tags);
-    await media.replaceReferences(const {}, fields);
-    return id;
-  });
+      for (final index in indexes) {
+        await db
+            .into(db.cards)
+            .insert(
+              CardsCompanion.insert(
+                noteId: id,
+                clozeIndex: Value(index),
+                dueAtUtc: now,
+              ),
+            );
+      }
+      await _writeTags(id, tags);
+      await media.replaceReferences(const {}, fields);
+      return id;
+    }),
+  );
 
   Future<Note> getNote(int id) async {
     final row = await _requireNote(id);
@@ -97,52 +117,59 @@ class NoteRepository {
     );
   }
 
-  Future<void> updateNote(Note note, {bool allowCardRemoval = false}) =>
-      db.transaction(() async {
-        final old = await _requireNote(note.id);
-        if (old.noteType != note.type.index) {
-          throw ArgumentError('暂不支持直接更改卡片类型');
-        }
-        final indexes = _indexes(note.type, note.fields).toSet();
-        final cards = await (db.select(
+  Future<void> updateNote(
+    Note note, {
+    bool allowCardRemoval = false,
+    Iterable<PreparedImage> images = const [],
+  }) => media.saveImages(
+    images,
+    note.fields,
+    () => db.transaction(() async {
+      final old = await _requireNote(note.id);
+      if (old.noteType != note.type.index) {
+        throw ArgumentError('暂不支持直接更改卡片类型');
+      }
+      final indexes = _indexes(note.type, note.fields).toSet();
+      final cards = await (db.select(
+        db.cards,
+      )..where((c) => c.noteId.equals(note.id))).get();
+      final removed = cards
+          .where((c) => !indexes.contains(c.clozeIndex))
+          .toList();
+      if (removed.isNotEmpty && !allowCardRemoval) {
+        throw ClozeRemovalConfirmation(removed.map((c) => c.clozeIndex));
+      }
+      await (db.update(db.notes)..where((n) => n.id.equals(note.id))).write(
+        NotesCompanion(
+          deckId: Value(note.deckId),
+          fieldsJson: Value(jsonEncode(note.fields)),
+          modifiedAtUtc: Value(_now),
+        ),
+      );
+      if (removed.isNotEmpty) {
+        await (db.delete(
           db.cards,
-        )..where((c) => c.noteId.equals(note.id))).get();
-        final removed = cards
-            .where((c) => !indexes.contains(c.clozeIndex))
-            .toList();
-        if (removed.isNotEmpty && !allowCardRemoval) {
-          throw ClozeRemovalConfirmation(removed.map((c) => c.clozeIndex));
-        }
-        await (db.update(db.notes)..where((n) => n.id.equals(note.id))).write(
-          NotesCompanion(
-            deckId: Value(note.deckId),
-            fieldsJson: Value(jsonEncode(note.fields)),
-            modifiedAtUtc: Value(_now),
-          ),
-        );
-        if (removed.isNotEmpty) {
-          await (db.delete(
-            db.cards,
-          )..where((c) => c.id.isIn(removed.map((c) => c.id)))).go();
-        }
-        final existing = cards.map((c) => c.clozeIndex).toSet();
-        for (final index in indexes.difference(existing)) {
-          await db
-              .into(db.cards)
-              .insert(
-                CardsCompanion.insert(
-                  noteId: note.id,
-                  clozeIndex: Value(index),
-                  dueAtUtc: _now,
-                ),
-              );
-        }
-        await _writeTags(note.id, note.tags);
-        await media.replaceReferences(
-          media.fieldsFromJson(old.fieldsJson),
-          note.fields,
-        );
-      });
+        )..where((c) => c.id.isIn(removed.map((c) => c.id)))).go();
+      }
+      final existing = cards.map((c) => c.clozeIndex).toSet();
+      for (final index in indexes.difference(existing)) {
+        await db
+            .into(db.cards)
+            .insert(
+              CardsCompanion.insert(
+                noteId: note.id,
+                clozeIndex: Value(index),
+                dueAtUtc: _now,
+              ),
+            );
+      }
+      await _writeTags(note.id, note.tags);
+      await media.replaceReferences(
+        media.fieldsFromJson(old.fieldsJson),
+        note.fields,
+      );
+    }),
+  );
 
   Future<void> deleteNote(int id) => db.transaction(() async {
     final old = await _requireNote(id);

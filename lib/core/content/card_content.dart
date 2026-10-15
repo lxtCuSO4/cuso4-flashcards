@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -13,10 +15,12 @@ class CardContent extends StatelessWidget {
     required this.source,
     required this.media,
     required this.audio,
+    this.draftImages = const {},
   });
   final String source;
   final MediaRepository media;
   final LocalAudioController audio;
+  final Map<String, Uint8List> draftImages;
   static final _sound = RegExp(r'\[sound:([^\]\r\n]+)\]');
   static const _blocked = {
     'script',
@@ -93,6 +97,7 @@ class CardContent extends StatelessWidget {
                 child: _LocalImage(
                   token: node.attributes['src'] ?? '',
                   media: media,
+                  draft: draftImages[node.attributes['src']],
                 ),
               ),
             ),
@@ -148,17 +153,19 @@ class CardContent extends StatelessWidget {
 }
 
 class _LocalImage extends StatefulWidget {
-  const _LocalImage({required this.token, required this.media});
+  const _LocalImage({required this.token, required this.media, this.draft});
   final String token;
   final MediaRepository media;
+  final Uint8List? draft;
   @override
   State<_LocalImage> createState() => _LocalImageState();
 }
 
 class _LocalImageState extends State<_LocalImage> {
   late Future<LocalMedia?> _asset;
-  void _load() =>
-      _asset = widget.media.resolve(widget.token, kind: MediaKind.image);
+  void _load() => _asset = widget.draft != null
+      ? Future.value(null)
+      : widget.media.resolve(widget.token, kind: MediaKind.image);
   @override
   void initState() {
     super.initState();
@@ -168,7 +175,11 @@ class _LocalImageState extends State<_LocalImage> {
   @override
   void didUpdateWidget(_LocalImage old) {
     super.didUpdateWidget(old);
-    if (old.token != widget.token || old.media != widget.media) _load();
+    if (old.token != widget.token ||
+        old.media != widget.media ||
+        old.draft != widget.draft) {
+      _load();
+    }
   }
 
   Widget _missing() => const Padding(
@@ -176,31 +187,37 @@ class _LocalImageState extends State<_LocalImage> {
     child: Text('图片缺失或无法显示', style: TextStyle(fontSize: 16)),
   );
   @override
-  Widget build(BuildContext context) => FutureBuilder<LocalMedia?>(
-    future: _asset,
-    builder: (context, snapshot) {
-      if (snapshot.connectionState != ConnectionState.done) {
-        return const Padding(
-          padding: EdgeInsets.all(16),
-          child: LinearProgressIndicator(),
-        );
-      }
-      final asset = snapshot.data;
-      if (asset == null) return _missing();
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.file(
-            asset.file,
-            fit: BoxFit.contain,
-            height: 280,
-            cacheWidth: 1220,
-            errorBuilder: (_, _, _) => _missing(),
-          ),
-        ),
-      );
-    },
+  Widget build(BuildContext context) {
+    if (widget.draft != null) {
+      return _image(MemoryImage(widget.draft!));
+    }
+    return FutureBuilder<LocalMedia?>(
+      future: _asset,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: LinearProgressIndicator(),
+          );
+        }
+        final asset = snapshot.data;
+        if (asset == null) return _missing();
+        return _image(FileImage(asset.file));
+      },
+    );
+  }
+
+  Widget _image(ImageProvider provider) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image(
+        image: ResizeImage(provider, width: 1220, allowUpscaling: false),
+        fit: BoxFit.contain,
+        height: 280,
+        errorBuilder: (_, _, _) => _missing(),
+      ),
+    ),
   );
 }
 

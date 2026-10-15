@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/media/prepared_image.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/pressable_action.dart';
+import '../application/editor_image_picker.dart';
 import '../data/note_repository.dart';
 import '../domain/cloze_parser.dart';
 import '../domain/note.dart';
+import 'note_preview_page.dart';
 
 class NoteEditorPage extends ConsumerStatefulWidget {
   const NoteEditorPage({super.key, required this.deckId, this.noteId});
@@ -27,6 +30,14 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
   Note? _original;
   bool _loading = false;
   bool _dirty = false;
+  bool _saving = false;
+  bool _picking = false;
+  bool _discarding = false;
+  final _images = <String, PreparedImage>{};
+  bool get _busy => _saving || _picking;
+  Map<String, String> get _fields => _type == NoteType.basic
+      ? {'front': _front.text, 'back': _back.text}
+      : {'text': _front.text, 'extra': _back.text};
   String? _loadError;
 
   @override
@@ -71,6 +82,8 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
   }
 
   Future<void> _save() async {
+    if (_busy) return;
+    setState(() => _saving = true);
     final repository = ref.read(noteRepositoryProvider);
     final tags = _tags.text.split(RegExp(r'[\s,，]+'));
     try {
@@ -81,6 +94,7 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
             front: _front.text,
             back: _back.text,
             tags: tags,
+            images: _images.values,
           );
         } else {
           await repository.createClozeNote(
@@ -88,6 +102,7 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
             text: _front.text,
             extra: _back.text,
             tags: tags,
+            images: _images.values,
           );
         }
       } else {
@@ -95,15 +110,13 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
           id: _original!.id,
           deckId: widget.deckId,
           type: _type,
-          fields: _type == NoteType.basic
-              ? {'front': _front.text, 'back': _back.text}
-              : {'text': _front.text, 'extra': _back.text},
+          fields: {..._original!.fields, ..._fields},
           tags: tags,
           createdAtUtc: _original!.createdAtUtc,
           modifiedAtUtc: DateTime.now(),
         );
         try {
-          await repository.updateNote(note);
+          await repository.updateNote(note, images: _images.values);
         } on ClozeRemovalConfirmation catch (error) {
           if (!mounted ||
               !await confirmRemoval(
@@ -112,21 +125,84 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
               )) {
             return;
           }
-          await repository.updateNote(note, allowCardRemoval: true);
+          await repository.updateNote(
+            note,
+            allowCardRemoval: true,
+            images: _images.values,
+          );
         }
       }
       if (!mounted) return;
       unawaited(cleanUpUnusedMedia(repository.media));
-      setState(() => _dirty = false);
+      setState(() {
+        _dirty = false;
+        _saving = false;
+      });
       await WidgetsBinding.instance.endOfFrame;
       if (!mounted) return;
       context.pop();
     } catch (error) {
       if (mounted) showActionError(context, error);
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 
+  Future<void> _insertImage(TextEditingController controller) async {
+    if (_busy) return;
+    final value = controller.value;
+    FocusScope.of(context).unfocus();
+    setState(() => _picking = true);
+    try {
+      final image = await ref.read(editorImagePickerProvider)();
+      if (!mounted || image == null) return;
+      final total = _images.values.fold(
+        0,
+        (sum, item) => sum + item.bytes.length,
+      );
+      if (!_images.containsKey(image.hash) &&
+          total + image.bytes.length > PreparedImage.maxDraftBytes) {
+        throw ArgumentError('本次编辑选入图片合计超过 30 MiB，请先保存后重新编辑。');
+      }
+      final selection = value.selection;
+      final start = selection.isValid ? selection.start : value.text.length;
+      final end = selection.isValid ? selection.end : value.text.length;
+      final markup = '\n<img src="${image.token}">\n';
+      controller.value = TextEditingValue(
+        text: value.text.replaceRange(start, end, markup),
+        selection: TextSelection.collapsed(offset: start + markup.length),
+      );
+      setState(() {
+        _images[image.hash] = image;
+        _dirty = true;
+      });
+    } catch (error) {
+      if (mounted) showActionError(context, error);
+    } finally {
+      if (mounted) setState(() => _picking = false);
+    }
+  }
+
+  Future<void> _preview() async {
+    FocusScope.of(context).unfocus();
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => NotePreviewPage(
+          type: _type,
+          front: _front.text,
+          back: _back.text,
+          media: ref.read(mediaRepositoryProvider),
+          draftImages: Map.unmodifiable({
+            for (final image in _images.values) image.token: image.bytes,
+          }),
+        ),
+      ),
+    );
+  }
+
   Future<void> _discard() async {
+    if (_busy || _discarding) return;
+    _discarding = true;
     final leave = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -144,6 +220,7 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
         ],
       ),
     );
+    _discarding = false;
     if (leave == true && mounted) {
       setState(() => _dirty = false);
       await WidgetsBinding.instance.endOfFrame;
@@ -153,7 +230,7 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
 
   @override
   Widget build(BuildContext context) => PopScope(
-    canPop: !_dirty,
+    canPop: !_dirty && !_busy,
     onPopInvokedWithResult: (didPop, _) {
       if (!didPop) _discard();
     },
@@ -172,7 +249,7 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
                     ButtonSegment(value: NoteType.cloze, label: Text('填空卡')),
                   ],
                   selected: {_type},
-                  onSelectionChanged: widget.noteId != null
+                  onSelectionChanged: widget.noteId != null || _busy
                       ? null
                       : (value) => setState(() {
                           _type = value.single;
@@ -181,6 +258,8 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
                 ),
                 const SizedBox(height: 24),
                 TextField(
+                  key: const ValueKey('note-front'),
+                  enabled: !_busy,
                   controller: _front,
                   minLines: 4,
                   maxLines: 12,
@@ -194,8 +273,15 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
                     helperMaxLines: 3,
                   ),
                 ),
+                const SizedBox(height: 8),
+                PressableAction(
+                  label: _type == NoteType.basic ? '正面插入图片' : '原文插入图片',
+                  onPressed: _busy ? null : () => _insertImage(_front),
+                ),
                 const SizedBox(height: 20),
                 TextField(
+                  key: const ValueKey('note-back'),
+                  enabled: !_busy,
                   controller: _back,
                   minLines: 3,
                   maxLines: 10,
@@ -205,8 +291,19 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
                     alignLabelWithHint: true,
                   ),
                 ),
+                const SizedBox(height: 8),
+                PressableAction(
+                  label: _type == NoteType.basic ? '背面插入图片' : '补充插入图片',
+                  onPressed: _busy ? null : () => _insertImage(_back),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '支持 PNG、JPG、GIF、WebP，单张 ≤ 10 MiB、1600 万像素。图片标记可在下方预览中查看。',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
                 const SizedBox(height: 20),
                 TextField(
+                  enabled: !_busy,
                   controller: _tags,
                   onChanged: (_) => setState(() => _dirty = true),
                   decoration: const InputDecoration(
@@ -222,7 +319,15 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
                   ),
                 ],
                 const SizedBox(height: 28),
-                PressableAction(label: '保存卡片', onPressed: _save),
+                PressableAction(
+                  label: '预览卡片',
+                  onPressed: _busy ? null : _preview,
+                ),
+                const SizedBox(height: 12),
+                PressableAction(
+                  label: _saving ? '正在保存…' : '保存卡片',
+                  onPressed: _busy ? null : _save,
+                ),
               ],
             ),
     ),

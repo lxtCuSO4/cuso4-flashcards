@@ -14,6 +14,7 @@
 
 - 开发状态与验证记录：`docs/development-progress.md`
 - 用户使用指南：[docs/user-guide.md](docs/user-guide.md)
+- 制卡规范：[制卡规范.md](制卡规范.md)（将资料交给大模型或脚本制作为 `.apkg` 前请先阅读）
 - 本次发布说明：[docs/releases/2026-10-16.md](docs/releases/2026-10-16.md)
 - 选择题、问题反馈与本版安装验收：`docs/choice-feedback.md`
 - 选择题导入、原地转换及仓库入口：`docs/choice-import.md`

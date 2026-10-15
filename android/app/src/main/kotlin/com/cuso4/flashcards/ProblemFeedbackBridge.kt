@@ -21,7 +21,7 @@ class ProblemFeedbackBridge(private val activity: Activity, messenger: BinaryMes
                 if (subject == null || body == null || subject.length > 300 || body.length > 15000) {
                     result.error("INVALID_DRAFT", "Invalid email draft", null)
                 } else {
-                    val recipient = "2791398676@qq.com"
+                    val recipient = "lixingtong035@163.com"
                     val uri = Uri.parse("mailto:$recipient?subject=${Uri.encode(subject)}&body=${Uri.encode(body)}")
                     val intent = Intent(Intent.ACTION_SENDTO, uri).apply {
                         putExtra(Intent.EXTRA_EMAIL, arrayOf(recipient))

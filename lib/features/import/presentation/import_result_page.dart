@@ -39,17 +39,24 @@ class ImportResultPanel extends StatelessWidget {
                 _Count('笔记', report.notes),
                 _Count('卡片', report.cards),
                 _Count('新增媒体文件', report.media),
+                if (report.singleChoice > 0)
+                  _Count('识别单选题', report.singleChoice),
+                if (report.multipleChoice > 0)
+                  _Count('识别多选题', report.multipleChoice),
               ],
             ),
           ),
         ),
         if (report.skipped > 0 ||
+            report.choiceFallback > 0 ||
             report.missingMedia > 0 ||
             report.unsupportedMedia > 0) ...[
           const SizedBox(height: 20),
           Text('需要留意', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (report.skipped > 0) Text('跳过 ${report.skipped} 条笔记：'),
+          if (report.choiceFallback > 0)
+            Text('${report.choiceFallback} 条疑似选择题的选项或答案不明确，已保留为基础卡，可手动核对。'),
           for (final entry in report.skippedReasons.entries)
             Padding(
               padding: const EdgeInsets.only(top: 6),
@@ -60,7 +67,7 @@ class ImportResultPanel extends StatelessWidget {
           if (report.unsupportedMedia > 0)
             Text('不支持或过大的媒体：${report.unsupportedMedia} 个。'),
           const SizedBox(height: 8),
-          const Text('支持标准基础卡与填空卡，不执行 Anki 自定义模板或脚本。'),
+          const Text('支持基础卡、填空卡及格式明确的单选／多选题，不执行 Anki 模板脚本。'),
         ],
         const SizedBox(height: 28),
         PressableAction(label: '查看牌组', onPressed: () => context.go('/decks')),

@@ -4,6 +4,7 @@ import '../core/database/app_database.dart';
 import '../core/media/media_repository.dart';
 import '../features/decks/data/deck_repository.dart';
 import '../features/decks/data/note_repository.dart';
+import '../features/decks/data/choice_conversion_repository.dart';
 import '../features/import/application/import_controller.dart';
 import '../features/import/data/apkg_import_service.dart';
 import '../features/import/data/import_recovery_repository.dart';
@@ -59,6 +60,12 @@ final noteRepositoryProvider = Provider(
 );
 final mediaRepositoryProvider = Provider(
   (ref) => MediaRepository(ref.watch(databaseProvider)),
+);
+final choiceConversionRepositoryProvider = Provider(
+  (ref) => ChoiceConversionRepository(
+    ref.watch(databaseProvider),
+    mediaRepository: ref.watch(mediaRepositoryProvider),
+  ),
 );
 final importServiceProvider = Provider(
   (ref) => ApkgImportService(ref.watch(databaseProvider)),

@@ -13,7 +13,7 @@ class ProblemFeedbackPage extends StatefulWidget {
 }
 
 class _ProblemFeedbackPageState extends State<ProblemFeedbackPage> {
-  static const _recipient = '2791398676@qq.com';
+  static const _recipient = 'lixingtong035@163.com';
   static const _channel = MethodChannel(
     'com.cuso4.flashcards/problem_feedback',
   );

@@ -59,6 +59,13 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             onPressed: () => context.push('/practice/${widget.deckId}'),
           ),
           const SizedBox(height: 16),
+          TextButton.icon(
+            onPressed: () =>
+                context.push('/decks/${widget.deckId}/recognize-choices'),
+            icon: const Icon(Icons.fact_check_outlined),
+            label: const Text('识别已导入选择题'),
+          ),
+          const SizedBox(height: 16),
           TextField(
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),

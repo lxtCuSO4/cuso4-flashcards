@@ -114,7 +114,7 @@ void main() {
       await tap(tester, '打开邮件应用');
       expect(find.text('未能打开邮件应用。可以复制反馈，稍后自行发送。'), findsOneWidget);
       await tap(tester, '复制反馈内容');
-      expect(copied, contains('2791398676@qq.com'));
+      expect(copied, contains('lixingtong035@163.com'));
       expect(copied, contains('第一行\n第二行 + 问题？'));
       tester.view.physicalSize = const Size(2712, 1220);
       await tester.pumpAndSettle();

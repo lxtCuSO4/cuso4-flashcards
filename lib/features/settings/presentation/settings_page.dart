@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/providers.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/touhou_tag.dart';
+import 'repository_link_card.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -100,6 +101,8 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
+          const SizedBox(height: 20),
+          const RepositoryLinkCard(),
           const SizedBox(height: 20),
           const ListTile(
             title: Text('Lunar Memory · 开发版'),

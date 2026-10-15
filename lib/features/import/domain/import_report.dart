@@ -8,6 +8,9 @@ class ImportReport {
     this.skippedReasons = const {},
     this.missingMedia = 0,
     this.unsupportedMedia = 0,
+    this.singleChoice = 0,
+    this.multipleChoice = 0,
+    this.choiceFallback = 0,
   });
   final int decks;
   final int notes;
@@ -17,6 +20,9 @@ class ImportReport {
   final Map<String, int> skippedReasons;
   final int missingMedia;
   final int unsupportedMedia;
+  final int singleChoice;
+  final int multipleChoice;
+  final int choiceFallback;
 
   Map<String, Object> toJson() => {
     'decks': decks,
@@ -27,5 +33,8 @@ class ImportReport {
     'skippedReasons': skippedReasons,
     'missingMedia': missingMedia,
     'unsupportedMedia': unsupportedMedia,
+    'singleChoice': singleChoice,
+    'multipleChoice': multipleChoice,
+    'choiceFallback': choiceFallback,
   };
 }

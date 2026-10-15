@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../core/database/app_database.dart';
 import '../../decks/data/note_repository.dart';
+import '../../decks/domain/choice_question.dart';
 import '../../decks/domain/note.dart';
 import '../domain/import_error.dart';
 import '../domain/import_report.dart';
@@ -244,7 +245,13 @@ class ApkgImportService {
             (key, value) =>
                 MapEntry(key, _mediaRewriter.rewrite(value, mediaHashes)),
           );
-          final id = converted.type == NoteType.basic
+          final id = converted.type.isChoice
+              ? await repository.createChoiceNote(
+                  deckId: targetDeck,
+                  question: ChoiceQuestion.fromFields(converted.type, fields),
+                  tags: converted.tags,
+                )
+              : converted.type == NoteType.basic
               ? await repository.createBasicNote(
                   deckId: targetDeck,
                   front: fields['front']!,
@@ -287,6 +294,13 @@ class ApkgImportService {
           skippedReasons: Map.unmodifiable(skippedReasons),
           missingMedia: prepared!.missingNames.length,
           unsupportedMedia: prepared.unsupportedNames.length,
+          singleChoice: pending
+              .where((e) => e.note.type == NoteType.singleChoice)
+              .length,
+          multipleChoice: pending
+              .where((e) => e.note.type == NoteType.multipleChoice)
+              .length,
+          choiceFallback: pending.where((e) => e.note.choiceFallback).length,
         );
         await (db.update(
           db.importJobs,

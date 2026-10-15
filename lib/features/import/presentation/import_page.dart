@@ -115,7 +115,9 @@ class ImportPage extends ConsumerWidget {
                                   style: Theme.of(context).textTheme.titleLarge,
                                 ),
                                 const SizedBox(height: 8),
-                                const Text('仅支持 .apkg，导入标准基础卡、填空卡，以及包内图片和音频。'),
+                                const Text(
+                                  '仅支持 .apkg，导入基础卡、填空卡、格式明确的选择题及包内媒体。',
+                                ),
                                 const SizedBox(height: 20),
                                 PressableAction(
                                   label: controller.file == null
@@ -131,7 +133,7 @@ class ImportPage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 20),
                         const Text(
-                          '支持标准旧版与新版 Zstd 压缩 .apkg。导入基础卡、填空卡和媒体，所有卡片从新卡开始；自定义模板可能跳过。牌组包及解压总量上限均为 512 MB。',
+                          '支持标准旧版与新版 Zstd 压缩 .apkg。题干、连续 A–H 选项和明确答案齐全时自动识别单选／多选题，无法确定时保留基础卡。所有导入卡片从新卡开始，自定义模板可能跳过。牌组包及解压总量上限均为 512 MB。',
                         ),
                         const SizedBox(height: 24),
                         Text(

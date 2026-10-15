@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/home/presentation/home_page.dart';
 import '../../features/decks/presentation/deck_list_page.dart';
 import '../../features/decks/presentation/card_list_page.dart';
+import '../../features/decks/presentation/choice_conversion_page.dart';
 import '../../features/decks/presentation/note_editor_page.dart';
 import '../../features/records/presentation/records_page.dart';
 import '../../features/settings/presentation/settings_page.dart';
@@ -90,6 +91,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       deckId: int.parse(state.pathParameters['deckId']!),
                     ),
                     routes: [
+                      GoRoute(
+                        path: 'recognize-choices',
+                        builder: (_, state) => ChoiceConversionPage(
+                          deckId: int.parse(state.pathParameters['deckId']!),
+                        ),
+                      ),
                       GoRoute(
                         path: 'new',
                         builder: (_, state) => NoteEditorPage(

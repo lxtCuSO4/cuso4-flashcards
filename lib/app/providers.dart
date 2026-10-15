@@ -8,6 +8,11 @@ import '../features/import/application/import_controller.dart';
 import '../features/import/data/apkg_import_service.dart';
 import '../features/study/data/study_repository.dart';
 import '../features/settings/data/study_settings_repository.dart';
+import '../features/records/data/statistics_repository.dart';
+
+final statisticsRepositoryProvider = Provider(
+  (ref) => StatisticsRepository(ref.watch(databaseProvider)),
+);
 
 final studySettingsRepositoryProvider = Provider(
   (ref) => StudySettingsRepository(ref.watch(databaseProvider)),

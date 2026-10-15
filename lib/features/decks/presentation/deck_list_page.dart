@@ -100,6 +100,11 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
       subtitle: '把知识整理成小块，慢慢记牢。',
       actions: [
         IconButton(
+          onPressed: () => context.push('/search'),
+          icon: const Icon(Icons.search),
+          tooltip: '搜索与批量管理',
+        ),
+        IconButton(
           onPressed: () => context.push('/import'),
           icon: const Icon(Icons.file_download_outlined),
           tooltip: '导入 .apkg',

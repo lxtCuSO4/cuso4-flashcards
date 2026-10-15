@@ -121,7 +121,7 @@ class ImportPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     const Text(
-                      '兼容提示：在 Anki 导出时选择旧版兼容格式。新版压缩集合暂不支持。牌组包及解压总量上限均为 512 MB。',
+                      '支持标准旧版与新版 Zstd 压缩 .apkg。导入基础卡、填空卡和媒体，所有卡片从新卡开始；自定义模板可能跳过。牌组包及解压总量上限均为 512 MB。',
                     ),
                     const SizedBox(height: 24),
                     Text(

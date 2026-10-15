@@ -36,6 +36,13 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     final notes = ref.watch(deckNotesProvider(widget.deckId));
     return PageFrame(
       title: name,
+      actions: [
+        IconButton(
+          onPressed: () => context.push('/search?deckId=${widget.deckId}'),
+          icon: const Icon(Icons.checklist_outlined),
+          tooltip: '搜索与批量管理',
+        ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

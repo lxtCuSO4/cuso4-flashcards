@@ -63,9 +63,23 @@ class SettingsPage extends ConsumerWidget {
                     },
                   ),
                 ),
+                ListTile(
+                  leading: const Icon(Icons.storage_outlined),
+                  title: const Text('存储管理'),
+                  subtitle: const Text('空间占用与未使用媒体清理'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/storage'),
+                ),
                 const ListTile(
                   title: Text('本地数据'),
                   subtitle: Text('数据库只保存在本机，无需登录'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: const Text('学习提醒'),
+                  subtitle: const Text('每日时间与系统通知权限'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/reminders'),
                 ),
                 ListTile(
                   leading: const Icon(Icons.save_outlined),

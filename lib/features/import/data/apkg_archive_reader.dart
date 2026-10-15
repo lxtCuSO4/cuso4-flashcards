@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as p;
 
 import '../domain/import_error.dart';
+import 'anki_protobuf.dart';
 
 class ApkgPackage {
   const ApkgPackage({
@@ -70,15 +72,8 @@ class ApkgArchiveReader {
           '牌组包包含过多文件。',
         );
       }
-      if (archive.find('collection.anki21b') != null) {
-        throw const ApkgImportException(
-          ImportErrorCode.unsupportedCollectionVersion,
-          '该牌组使用新版压缩格式。请在 Anki 导出时选择旧版兼容格式。',
-        );
-      }
-      final collectionName = archive.find('collection.anki21') != null
-          ? 'collection.anki21'
-          : 'collection.anki2';
+      final raw = Directory(p.join(root.path, 'zip'));
+      await raw.create();
       var extracted = 0;
       for (final entry in archive) {
         if (entry.isDirectory) continue;
@@ -89,7 +84,7 @@ class ApkgArchiveReader {
             '牌组包解压后超过大小上限。',
           );
         }
-        final output = File(p.join(root.path, normalized));
+        final output = File(p.join(raw.path, normalized));
         await output.parent.create(recursive: true);
         final sink = _CheckedOutput(output.path, maxExtractedBytes - extracted);
         try {
@@ -105,16 +100,117 @@ class ApkgArchiveReader {
         }
         extracted += sink.length;
       }
-      final collection = File(p.join(root.path, collectionName));
+      var version = archive.find('collection.anki21') != null ? 2 : 1;
+      final meta = File(p.join(raw.path, 'meta'));
+      if (await meta.exists()) {
+        if (await meta.length() > 65536) throw const FormatException();
+        version = 0;
+        for (final field in readAnkiProto(await meta.readAsBytes())) {
+          if (field.number == 1) {
+            if (field.wire != 0) throw const FormatException();
+            version = field.integer!;
+          }
+        }
+      } else if (archive.find('collection.anki21b') != null) {
+        version = 0; // Never import a modern package's compatibility stub.
+      }
+      if (version < 1 || version > 3) {
+        throw const ApkgImportException(
+          ImportErrorCode.unsupportedCollectionVersion,
+          '不支持该 Anki 牌组包版本，请使用标准 .apkg 导出。',
+        );
+      }
+      final collectionName = switch (version) {
+        3 => 'collection.anki21b',
+        2 => 'collection.anki21',
+        _ => 'collection.anki2',
+      };
+      var collection = File(p.join(raw.path, collectionName));
       if (!await collection.exists()) {
         throw const ApkgImportException(
           ImportErrorCode.missingCollection,
           '牌组包缺少集合数据库。',
         );
       }
-      final manifestFile = File(p.join(root.path, 'media'));
+      final manifestFile = File(p.join(raw.path, 'media'));
       final media = <String, File>{};
-      if (await manifestFile.exists()) {
+      if (version == 3) {
+        final decoded = Directory(p.join(root.path, 'decoded'));
+        await decoded.create();
+        Future<File> decode(File source, String name, {int? limit}) async {
+          final file = File(p.join(decoded.path, name));
+          final remaining = maxExtractedBytes - extracted;
+          final size = _decodeZstd(
+            source,
+            file,
+            limit == null || limit > remaining ? remaining : limit,
+          );
+          extracted += size;
+          return file;
+        }
+
+        collection = await decode(collection, 'collection.sqlite');
+        try {
+          final manifest = await decode(
+            manifestFile,
+            'manifest',
+            limit: 8 * 1024 * 1024,
+          );
+          var index = 0;
+          for (final field in readAnkiProto(await manifest.readAsBytes())) {
+            if (field.number != 1) continue;
+            if (field.wire != 2 || index >= maxEntries) {
+              throw const FormatException();
+            }
+            String? name;
+            var size = 0;
+            List<int>? hash;
+            for (final entry in readAnkiProto(field.bytes!)) {
+              switch (entry.number) {
+                case 1:
+                  if (entry.wire != 2) throw const FormatException();
+                  name = utf8.decode(entry.bytes!);
+                case 2:
+                  if (entry.wire != 0) throw const FormatException();
+                  size = entry.integer!;
+                case 3:
+                  if (entry.wire != 2) throw const FormatException();
+                  hash = entry.bytes!;
+              }
+            }
+            if (name == null ||
+                hash?.length != 20 ||
+                size < 0 ||
+                size > 0xffffffff) {
+              throw const FormatException();
+            }
+            _safeName(name);
+            if (name.contains('/') ||
+                name.contains('\\') ||
+                media.containsKey(name)) {
+              throw const FormatException();
+            }
+            final file = await decode(
+              File(p.join(raw.path, '$index')),
+              'media_$index',
+              limit: size,
+            );
+            if (await file.length() != size ||
+                (await sha1.bind(file.openRead()).first).toString() !=
+                    Digest(hash!).toString()) {
+              throw const FormatException();
+            }
+            media[name] = file;
+            index++;
+          }
+        } catch (error) {
+          if (error is ApkgImportException) rethrow;
+          throw const ApkgImportException(
+            ImportErrorCode.invalidMediaManifest,
+            '新版牌组媒体清单或文件校验失败。',
+          );
+        }
+      } else if (await manifestFile.exists()) {
         try {
           if (await manifestFile.length() > 8 * 1024 * 1024) {
             throw const FormatException();
@@ -134,7 +230,7 @@ class ApkgArchiveReader {
                 media.containsKey(name)) {
               throw const FormatException();
             }
-            media[name] = File(p.join(root.path, entry.key));
+            media[name] = File(p.join(raw.path, entry.key));
           }
         } catch (_) {
           throw const ApkgImportException(
@@ -157,6 +253,29 @@ class ApkgArchiveReader {
         '牌组包损坏或不是有效的 ZIP 文件。',
       );
     } finally {
+      input.closeSync();
+    }
+  }
+
+  int _decodeZstd(File source, File target, int limit) {
+    final input = InputFileStream(source.path);
+    final output = OutputFileStream(target.path);
+    try {
+      // Empty/skippable-only input is not a compressed Anki file.
+      if (input.length < 4 || input.readUint32() != 0xfd2fb528) {
+        throw const FormatException('Missing Zstd frame');
+      }
+      input.position = 0;
+      ZstdDecoder().decodeStream(
+        input,
+        output,
+        verify: true,
+        throwOnError: true,
+        maxOutputSize: limit,
+      );
+      return output.length;
+    } finally {
+      output.closeSync();
       input.closeSync();
     }
   }

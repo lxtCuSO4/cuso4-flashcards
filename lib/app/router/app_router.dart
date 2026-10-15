@@ -15,10 +15,21 @@ import '../../features/favorites/presentation/favorites_page.dart';
 import '../../features/favorites/presentation/favorite_preview_page.dart';
 import '../../features/backup/presentation/backup_page.dart';
 import '../../features/practice/presentation/practice_page.dart';
+import '../../features/search/presentation/search_page.dart';
+import '../../features/reminders/reminder_page.dart';
+import '../../features/storage/storage_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
+      GoRoute(path: '/storage', builder: (_, _) => const StoragePage()),
+      GoRoute(path: '/reminders', builder: (_, _) => const ReminderPage()),
+      GoRoute(
+        path: '/search',
+        builder: (_, state) => SearchPage(
+          deckId: int.tryParse(state.uri.queryParameters['deckId'] ?? ''),
+        ),
+      ),
       GoRoute(
         path: '/favorite-practice',
         builder: (_, state) => PracticePage(

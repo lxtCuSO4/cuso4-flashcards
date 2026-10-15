@@ -58,11 +58,16 @@ void showActionError(BuildContext context, Object error) {
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
 }
 
-Future<bool> confirmRemoval(BuildContext context, String message) async =>
+Future<bool> confirmRemoval(
+  BuildContext context,
+  String message, {
+  String title = '确认删除',
+  String confirmLabel = '删除',
+}) async =>
     await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('确认删除'),
+        title: Text(title),
         content: Text(message),
         actions: [
           TextButton(
@@ -71,7 +76,7 @@ Future<bool> confirmRemoval(BuildContext context, String message) async =>
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('删除'),
+            child: Text(confirmLabel),
           ),
         ],
       ),

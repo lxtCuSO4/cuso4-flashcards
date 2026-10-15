@@ -25,3 +25,5 @@
 - 离线 ARM64 构建：`./tool/build_android_local.ps1 -BuildMode Release -TargetPlatform android-arm64 -Offline`
 
 当前安装包仍使用开发测试签名；正式公开发布签名和多机型兼容验收待完成。
+
+本项目只作为编程交流学习之用，切勿用作商业用途！感谢您的配合。

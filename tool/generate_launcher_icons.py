@@ -1,7 +1,7 @@
 """Generate deterministic Android icons from the user-supplied artwork.
 
 Run from any directory: python tool/generate_launcher_icons.py
-Requires Pillow. The original image is preserved without crop or redraw.
+Requires Pillow. The original file is preserved; derived assets share one framing.
 Adaptive layers follow https://developer.android.com/develop/ui/compose/system/icon_design_adaptive
 """
 
@@ -14,6 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "android/app/src/main/res"
 SOURCE = ROOT / "assets/branding/launcher-source.jpg"
 DENSITIES = {"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4}
+VIEWPORT_DP = 72
+ART_DP = 64
 
 
 def centered(art, canvas_size, art_size, background):
@@ -43,17 +45,21 @@ def main():
         drawable = RES / f"drawable-{density}"
         mipmap.mkdir(parents=True, exist_ok=True)
         drawable.mkdir(parents=True, exist_ok=True)
-        # 46dp square fits inside the guaranteed 66dp safe circle. The
-        # 72dp launcher viewport therefore preserves every visible source pixel.
-        foreground = centered(art, round(108 * scale), round(46 * scale), (0, 0, 0, 0))
+        # Enlarge the character while keeping room around the top/bottom.
+        # Inspect the preview masks: launchers can crop outside the safe circle.
+        foreground = centered(art, round(108 * scale), round(ART_DP * scale), (0, 0, 0, 0))
         foreground.save(drawable / "ic_launcher_foreground.png", optimize=True)
-        legacy = centered(art, round(48 * scale), round(48 * 46 / 72 * scale), "white")
+        legacy = centered(art, round(48 * scale), round(48 * ART_DP / VIEWPORT_DP * scale), "white")
         legacy.convert("RGB").save(mipmap / "ic_launcher.png", optimize=True)
         masked(legacy, circle=True).save(mipmap / "ic_launcher_round.png", optimize=True)
 
     preview_dir = ROOT / "assets/branding"
+    # A small bundled asset uses the same composition as the launcher viewport.
+    centered(art, 256, round(256 * ART_DP / VIEWPORT_DP), "white").save(
+        preview_dir / "app-logo.png", optimize=True
+    )
     # Preview the 72dp adaptive viewport, including the launcher mask.
-    viewport = centered(art, 432, 276, "white")
+    viewport = centered(art, 432, round(432 * ART_DP / VIEWPORT_DP), "white")
     sheet = Image.new("RGB", (1008, 552), "#e8e5f0")
     draw = ImageDraw.Draw(sheet)
     for index, circle in enumerate((True, False)):

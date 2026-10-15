@@ -94,6 +94,16 @@ class _HomePageState extends ConsumerState<HomePage>
     final scheme = Theme.of(context).colorScheme;
     return PageFrame(
       title: 'Lunar Memory',
+      titleLeading: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.asset(
+          'assets/branding/app-logo.png',
+          width: 36,
+          height: 36,
+          filterQuality: FilterQuality.none,
+          excludeFromSemantics: true,
+        ),
+      ),
       header: const TouhouTag(TouhouPlace.school),
       subtitle: '今天，也为记忆留一点时间。',
       actions: [

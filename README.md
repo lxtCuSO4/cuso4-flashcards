@@ -7,6 +7,8 @@
 使用 Flutter、Drift／SQLite。内部应用标识和备份格式保留，以支持覆盖升级和旧数据。
 
 - 开发状态与验证记录：`docs/development-progress.md`
+- 朋友上手指南：`docs/user-guide.md`
+- 首页 logo、新图标与安装验收：`docs/home-logo.md`
 - 导入恢复、图标与本轮手机验收：`docs/import-recovery.md`
 - 本地工具说明：`docs/local-tools.md`
 - 重建桌面图标：`python tool/generate_launcher_icons.py`（需要 Pillow）

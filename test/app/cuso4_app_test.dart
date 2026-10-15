@@ -34,6 +34,18 @@ void main() {
     expect(app.darkTheme!.brightness, Brightness.dark);
     expect(app.themeMode, ThemeMode.system);
     expect(find.text('Lunar Memory'), findsOneWidget);
+    final logo = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is AssetImage &&
+          (widget.image as AssetImage).assetName ==
+              'assets/branding/app-logo.png',
+    );
+    expect(logo, findsOneWidget);
+    expect(
+      tester.getRect(logo).right,
+      lessThan(tester.getRect(find.text('Lunar Memory')).left),
+    );
     expect(find.byType(SafeArea), findsWidgets);
     await tester.tap(find.text('牌组').last);
     await tester.pumpAndSettle();

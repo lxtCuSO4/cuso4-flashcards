@@ -5,12 +5,14 @@ class PageFrame extends StatelessWidget {
     super.key,
     required this.title,
     required this.child,
+    this.titleLeading,
     this.subtitle,
     this.header,
     this.actions = const [],
     this.scrollController,
   });
   final String title;
+  final Widget? titleLeading;
   final String? subtitle;
   final Widget? header;
   final Widget child;
@@ -19,7 +21,25 @@ class PageFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(title), actions: actions),
+    appBar: AppBar(
+      title: titleLeading == null
+          ? Text(title)
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                titleLeading!,
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+      actions: actions,
+    ),
     body: SafeArea(
       top: false,
       child: Align(

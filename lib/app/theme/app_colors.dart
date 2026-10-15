@@ -15,4 +15,8 @@ abstract final class AppColors {
   static const nightDestructive = Color(0xFFFFB4AB);
   static const destructiveForeground = Color(0xFFFFFFFF);
   static const nightDestructiveForeground = Color(0xFF690005);
+  static const touhouSurface = Color(0xFFEEE7F6);
+  static const touhouForeground = Color(0xFF655079);
+  static const nightTouhouSurface = Color(0xFF3E314E);
+  static const nightTouhouForeground = Color(0xFFE4D4F7);
 }

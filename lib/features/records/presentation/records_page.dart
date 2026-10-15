@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/providers.dart';
 import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/widgets/page_frame.dart';
+import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../domain/daily_statistics.dart';
 import 'learning_calendar.dart';
@@ -92,6 +93,7 @@ class _RecordsPageState extends ConsumerState<RecordsPage>
     final statistics = ref.watch(statisticsProvider(_query));
     return PageFrame(
       title: '记录',
+      header: const TouhouTag(TouhouPlace.journal),
       subtitle: '每一次回想，都在这里留下足迹。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/providers.dart';
 import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/widgets/page_frame.dart';
+import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../import/presentation/import_recovery_notice.dart';
 import '../domain/home_summary.dart';
@@ -93,6 +94,7 @@ class _HomePageState extends ConsumerState<HomePage>
     final scheme = Theme.of(context).colorScheme;
     return PageFrame(
       title: 'Lunar Memory',
+      header: const TouhouTag(TouhouPlace.school),
       subtitle: '今天，也为记忆留一点时间。',
       actions: [
         IconButton(

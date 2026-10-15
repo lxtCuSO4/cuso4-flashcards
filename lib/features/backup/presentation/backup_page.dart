@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/widgets/pressable_action.dart';
+import '../../../core/widgets/touhou_tag.dart';
 import '../application/backup_controller.dart';
 import '../data/backup_platform.dart';
 
@@ -92,6 +93,7 @@ class _BackupPageState extends ConsumerState<BackupPage> {
                 child: ListView(
                   padding: const EdgeInsets.all(24),
                   children: [
+                    const TouhouTag(TouhouPlace.eientei),
                     Text(
                       '让每一次学习，都有备份。',
                       style: Theme.of(context).textTheme.headlineSmall,

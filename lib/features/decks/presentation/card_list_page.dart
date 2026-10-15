@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/widgets/page_frame.dart';
+import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
 
 final deckNotesProvider = StreamProvider.autoDispose.family((ref, int deckId) {
@@ -36,6 +37,7 @@ class _CardListPageState extends ConsumerState<CardListPage> {
     final notes = ref.watch(deckNotesProvider(widget.deckId));
     return PageFrame(
       title: name,
+      header: const TouhouTag(TouhouPlace.library),
       actions: [
         IconButton(
           onPressed: () => context.push('/search?deckId=${widget.deckId}'),

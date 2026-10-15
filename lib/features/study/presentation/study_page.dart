@@ -10,6 +10,7 @@ import '../../../core/content/card_content.dart';
 import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/media/local_audio_controller.dart';
 import '../../../core/widgets/pressable_action.dart';
+import '../../../core/widgets/touhou_tag.dart';
 import '../../decks/domain/cloze_parser.dart';
 import '../../decks/domain/note.dart';
 import '../application/study_session_controller.dart';
@@ -171,6 +172,10 @@ class _StudyPageState extends ConsumerState<StudyPage>
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
+                                const TouhouTag(
+                                  TouhouPlace.study,
+                                  margin: EdgeInsets.only(bottom: 12),
+                                ),
                                 Wrap(
                                   alignment: WrapAlignment.spaceBetween,
                                   crossAxisAlignment: WrapCrossAlignment.center,

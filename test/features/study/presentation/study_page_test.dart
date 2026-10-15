@@ -91,6 +91,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byTooltip('取消收藏'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
   });
 
   testWidgets(
@@ -123,6 +124,7 @@ void main() {
       expect((await db.select(db.reviewLogs).get()).length, 1);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
     },
   );
 }

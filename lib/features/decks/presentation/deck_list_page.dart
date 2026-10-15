@@ -8,6 +8,7 @@ import '../../../app/providers.dart';
 import '../../../core/database/app_database.dart';
 import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/widgets/page_frame.dart';
+import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
 
 class DeckListPage extends ConsumerStatefulWidget {
@@ -97,6 +98,7 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
     bool isExpanded(int id) => settings.value?['deckExpanded.$id'] == 'true';
     return PageFrame(
       title: '牌组',
+      header: const TouhouTag(TouhouPlace.library),
       subtitle: '把知识整理成小块，慢慢记牢。',
       actions: [
         IconButton(

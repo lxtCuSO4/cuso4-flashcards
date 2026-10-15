@@ -8,6 +8,7 @@ import '../../../app/providers.dart';
 import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/media/local_audio_controller.dart';
 import '../../../core/widgets/page_frame.dart';
+import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../study/domain/study_card.dart';
 import '../data/practice_repository.dart';
@@ -191,6 +192,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
         '当前牌组';
     return PageFrame(
       title: widget.favoritesOnly ? '收藏随机练习' : '随机练习',
+      header: TouhouTag(
+        widget.favoritesOnly ? TouhouPlace.bookmarks : TouhouPlace.bamboo,
+      ),
       subtitle: '不改变 FSRS 进度、每日额度和学习统计',
       scrollController: _scroll,
       child: Column(

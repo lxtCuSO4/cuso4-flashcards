@@ -6,11 +6,13 @@ class PageFrame extends StatelessWidget {
     required this.title,
     required this.child,
     this.subtitle,
+    this.header,
     this.actions = const [],
     this.scrollController,
   });
   final String title;
   final String? subtitle;
+  final Widget? header;
   final Widget child;
   final List<Widget> actions;
   final ScrollController? scrollController;
@@ -30,6 +32,7 @@ class PageFrame extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                ?header,
                 if (subtitle != null) ...[
                   Text(
                     subtitle!,

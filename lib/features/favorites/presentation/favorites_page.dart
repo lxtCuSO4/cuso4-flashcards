@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/providers.dart';
 import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/widgets/page_frame.dart';
+import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../decks/domain/note.dart';
 import '../data/favorite_repository.dart';
@@ -87,6 +88,7 @@ class _FavoritesPageState extends ConsumerState<FavoritesPage> {
         !decks.value!.any((d) => d.id == _deckId);
     return PageFrame(
       title: '我的收藏',
+      header: const TouhouTag(TouhouPlace.bookmarks),
       subtitle: '把需要再想一想的知识留在这里。预览不会改变学习进度。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

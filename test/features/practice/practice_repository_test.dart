@@ -104,6 +104,67 @@ void main() {
   });
 
   test(
+    'favorite samples respect scope and never include unstarred cards',
+    () async {
+      final childCard = allCards[ownCards.length];
+      final grandchildCard = allCards.last;
+      final otherCard = (await db.select(db.cards).get()).last.id;
+      for (final id in [childCard, grandchildCard, otherCard]) {
+        await StudyRepository(db).setFavorite(id, true);
+      }
+      final direct = await repository.sample(
+        deckId: root,
+        includeChildren: false,
+        count: 500,
+        favoritesOnly: true,
+      );
+      expect(direct.cardIds, [ownCards.first]);
+      final nested = await repository.sample(
+        deckId: root,
+        includeChildren: true,
+        count: 500,
+        favoritesOnly: true,
+      );
+      expect(
+        nested.cardIds,
+        unorderedEquals([ownCards.first, childCard, grandchildCard]),
+      );
+      final all = await repository.sample(
+        includeChildren: true,
+        count: 500,
+        favoritesOnly: true,
+      );
+      expect(all.deckName, '全部牌组');
+      expect(
+        all.cardIds,
+        unorderedEquals([ownCards.first, childCard, grandchildCard, otherCard]),
+      );
+      final limited = await repository.sample(
+        count: 2,
+        includeChildren: false,
+        favoritesOnly: true,
+      );
+      expect(limited.cardIds.toSet().length, 2);
+      await StudyRepository(db).setFavorite(ownCards.first, false);
+      expect(
+        (await repository.sample(
+          deckId: root,
+          includeChildren: false,
+          count: 20,
+          favoritesOnly: true,
+        )).cardIds,
+        isEmpty,
+      );
+      // A completed round remains an immutable snapshot; the next round resamples.
+      expect(direct.cardIds, [ownCards.first]);
+      await expectLater(
+        repository.sample(includeChildren: true, count: 20),
+        throwsArgumentError,
+      );
+    },
+  );
+
+  test(
     'sampling and reading a full round leave every stored row unchanged',
     () async {
       Future<List<Object?>> snapshot() async => [
@@ -124,6 +185,7 @@ void main() {
         deckId: root,
         includeChildren: true,
         count: 500,
+        favoritesOnly: true,
       );
       for (final id in round.cardIds) {
         expect((await StudyRepository(db).getStudyCard(id)).card.id, id);

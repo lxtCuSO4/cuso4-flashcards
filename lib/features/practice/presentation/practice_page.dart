@@ -14,8 +14,15 @@ import '../data/practice_repository.dart';
 import 'practice_card_face.dart';
 
 class PracticePage extends ConsumerStatefulWidget {
-  const PracticePage({super.key, required this.deckId});
-  final int deckId;
+  const PracticePage({
+    super.key,
+    this.deckId,
+    this.favoritesOnly = false,
+    this.includeChildren = true,
+  });
+  final int? deckId;
+  final bool favoritesOnly;
+  final bool includeChildren;
   @override
   ConsumerState<PracticePage> createState() => _PracticePageState();
 }
@@ -26,7 +33,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
   final _count = TextEditingController(text: '20');
   final _scroll = ScrollController();
   late final LocalAudioController _audio;
-  bool _includeChildren = true;
+  late bool _includeChildren;
   bool _busy = false;
   bool _answerVisible = false;
   bool _completed = false;
@@ -39,6 +46,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
   @override
   void initState() {
     super.initState();
+    _includeChildren = widget.includeChildren;
     WidgetsBinding.instance.addObserver(this);
     _audio = LocalAudioController(ref.read(mediaRepositoryProvider));
   }
@@ -75,12 +83,18 @@ class _PracticePageState extends ConsumerState<PracticePage>
             deckId: widget.deckId,
             includeChildren: _includeChildren,
             count: int.parse(_count.text.trim()),
+            favoritesOnly: widget.favoritesOnly,
           );
       if (!mounted) return;
       if (round.cardIds.isEmpty) {
         setState(() {
           _busy = false;
-          _error = '当前范围没有卡片。可包含子章节，或先添加、导入卡片。';
+          _round = null;
+          _card = null;
+          _completed = false;
+          _error = widget.favoritesOnly
+              ? '当前范围没有收藏卡片。可调整章节范围，或先收藏卡片。'
+              : '当前范围没有卡片。可包含子章节，或先添加、导入卡片。';
         });
         return;
       }
@@ -167,6 +181,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
     final round = _round;
     final deckName =
         round?.deckName ??
+        (widget.deckId == null ? '全部牌组' : null) ??
         ref
             .watch(decksProvider)
             .value
@@ -175,13 +190,17 @@ class _PracticePageState extends ConsumerState<PracticePage>
             ?.name ??
         '当前牌组';
     return PageFrame(
-      title: '随机练习',
+      title: widget.favoritesOnly ? '收藏随机练习' : '随机练习',
       subtitle: '不改变 FSRS 进度、每日额度和学习统计',
       scrollController: _scroll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(deckName, style: Theme.of(context).textTheme.titleLarge),
+          if (widget.favoritesOnly) ...[
+            const SizedBox(height: 8),
+            const Text('仅练习收藏卡片'),
+          ],
           const SizedBox(height: 24),
           if (round == null) ...[
             const Text('随时抽卡，自由巩固。包含未学、已学和未到期卡片，同一轮不重复。'),
@@ -213,21 +232,22 @@ class _PracticePageState extends ConsumerState<PracticePage>
               ),
             ),
             const SizedBox(height: 16),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('包含子章节'),
-              subtitle: const Text('同时抽取这个牌组下各级章节的卡片'),
-              value: _includeChildren,
-              onChanged: _busy
-                  ? null
-                  : (value) {
-                      unawaited(FeedbackScope.of(context).tap());
-                      setState(() {
-                        _includeChildren = value;
-                        _error = null;
-                      });
-                    },
-            ),
+            if (widget.deckId != null)
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('包含子章节'),
+                subtitle: const Text('同时抽取这个牌组下各级章节的卡片'),
+                value: _includeChildren,
+                onChanged: _busy
+                    ? null
+                    : (value) {
+                        unawaited(FeedbackScope.of(context).tap());
+                        setState(() {
+                          _includeChildren = value;
+                          _error = null;
+                        });
+                      },
+              ),
             const SizedBox(height: 24),
             PressableAction(label: '开始随机练习', onPressed: _busy ? null : _start),
           ] else if (_completed) ...[

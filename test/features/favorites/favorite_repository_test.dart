@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cuso4_flashcards/core/database/app_database.dart';
 import 'package:cuso4_flashcards/features/decks/data/deck_repository.dart';
 import 'package:cuso4_flashcards/features/decks/data/note_repository.dart';
@@ -13,13 +15,14 @@ void main() {
   late int basicId;
   late int clozeNote;
   late List<int> clozeIds;
+  late int root, child;
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     favorites = FavoriteRepository(db);
     study = StudyRepository(db, clock: () => DateTime.utc(2026, 10, 15));
     final decks = DeckRepository(db);
-    final root = await decks.createDeck('操作系统');
-    final child = await decks.createDeck('进程', parentId: root);
+    root = await decks.createDeck('操作系统');
+    child = await decks.createDeck('进程', parentId: root);
     final notes = NoteRepository(db);
     final basic = await notes.createBasicNote(
       deckId: root,
@@ -66,6 +69,58 @@ void main() {
     expect(() => favorites.watchPage(limit: 31), throwsArgumentError);
     expect(() => favorites.watchPage(offset: -1), throwsArgumentError);
   });
+
+  test(
+    'deck scope filters before pagination and includes all descendant levels',
+    () async {
+      final grandchild = await DeckRepository(db)
+          .createDeck('线程', parentId: child);
+      final other = await DeckRepository(db).createDeck('其他');
+      for (final deckId in [grandchild, other]) {
+        final note = await NoteRepository(db)
+            .createBasicNote(deckId: deckId, front: '额外收藏');
+        final card = await (db.select(
+          db.cards,
+        )..where((c) => c.noteId.equals(note))).getSingle();
+        await study.setFavorite(card.id, true);
+      }
+      final own = await favorites
+          .watchPage(deckId: root, includeChildren: false)
+          .first;
+      expect(own.items.map((e) => e.cardId), [basicId]);
+      final nested = await favorites.watchPage(deckId: root).first;
+      expect(nested.items.length, 4);
+      expect(nested.items.map((e) => e.deckName), isNot(contains('其他')));
+      expect(
+        (await favorites.watchPage(deckId: root, limit: 2, offset: 2).first)
+            .items
+            .map((e) => e.cardId),
+        [clozeIds.first, basicId],
+      );
+      expect((await favorites.watchPage(deckId: -1).first).items, isEmpty);
+      expect((await favorites.watchPage().first).items.length, 5);
+    },
+  );
+
+  test(
+    'scoped subscription reacts to cancel, restore and deleting its deck',
+    () async {
+      final stream = favorites.watchPage(deckId: child, includeChildren: false);
+      final iterator = StreamIterator(stream);
+      await iterator.moveNext();
+      expect(iterator.current.items.length, 2);
+      await study.setFavorite(clozeIds.first, false);
+      await iterator.moveNext();
+      expect(iterator.current.items.map((e) => e.cardId), [clozeIds.last]);
+      await study.setFavorite(clozeIds.first, true);
+      await iterator.moveNext();
+      expect(iterator.current.items.length, 2);
+      await DeckRepository(db).deleteDeck(child);
+      await iterator.moveNext();
+      expect(iterator.current.items, isEmpty);
+      await iterator.cancel();
+    },
+  );
 
   test(
     'preview, cancel and restore leave all scheduling and logs unchanged',

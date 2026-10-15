@@ -20,6 +20,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
       GoRoute(
+        path: '/favorite-practice',
+        builder: (_, state) => PracticePage(
+          deckId: int.tryParse(state.uri.queryParameters['deckId'] ?? ''),
+          favoritesOnly: true,
+          includeChildren: state.uri.queryParameters['children'] != 'false',
+        ),
+      ),
+      GoRoute(
         path: '/practice/:deckId',
         builder: (_, state) =>
             PracticePage(deckId: int.parse(state.pathParameters['deckId']!)),

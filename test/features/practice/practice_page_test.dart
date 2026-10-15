@@ -25,9 +25,10 @@ class ControlledPracticeRepository extends PracticeRepository {
   bool fail = false;
   @override
   Future<PracticeRound> sample({
-    required int deckId,
+    int? deckId,
     required bool includeChildren,
     required int count,
+    bool favoritesOnly = false,
   }) async {
     calls++;
     if (gate != null) await gate!.future;

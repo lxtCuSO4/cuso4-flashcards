@@ -10,6 +10,11 @@ import '../features/study/data/study_repository.dart';
 import '../features/settings/data/study_settings_repository.dart';
 import '../features/records/data/statistics_repository.dart';
 import '../features/home/application/home_summary_service.dart';
+import '../features/practice/data/practice_repository.dart';
+
+final practiceRepositoryProvider = Provider(
+  (ref) => PracticeRepository(ref.watch(databaseProvider)),
+);
 
 final homeSummaryServiceProvider = Provider(
   (ref) => HomeSummaryService(

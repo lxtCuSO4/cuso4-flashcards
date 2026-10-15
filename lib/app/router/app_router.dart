@@ -14,10 +14,16 @@ import '../../features/study/presentation/study_page.dart';
 import '../../features/favorites/presentation/favorites_page.dart';
 import '../../features/favorites/presentation/favorite_preview_page.dart';
 import '../../features/backup/presentation/backup_page.dart';
+import '../../features/practice/presentation/practice_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
+      GoRoute(
+        path: '/practice/:deckId',
+        builder: (_, state) =>
+            PracticePage(deckId: int.parse(state.pathParameters['deckId']!)),
+      ),
       GoRoute(
         path: '/study-settings',
         builder: (_, _) => const StudySettingsPage(),

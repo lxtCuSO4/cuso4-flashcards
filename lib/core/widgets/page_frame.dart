@@ -7,11 +7,13 @@ class PageFrame extends StatelessWidget {
     required this.child,
     this.subtitle,
     this.actions = const [],
+    this.scrollController,
   });
   final String title;
   final String? subtitle;
   final Widget child;
   final List<Widget> actions;
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -23,6 +25,7 @@ class PageFrame extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 960),
           child: SingleChildScrollView(
+            controller: scrollController,
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

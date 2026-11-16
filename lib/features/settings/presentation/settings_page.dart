@@ -30,6 +30,20 @@ class SettingsPage extends ConsumerWidget {
             child: Column(
               children: [
                 ListTile(
+                  leading: const Icon(Icons.fact_check_outlined),
+                  title: const Text('错题列表'),
+                  subtitle: const Text('选择题错题专项练习，答对自动移出'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/wrong-questions'),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.bookmark_border),
+                  title: const Text('我的收藏'),
+                  subtitle: const Text('回看收藏，练习收藏选择题'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/favorites'),
+                ),
+                ListTile(
                   leading: const Icon(Icons.tune_outlined),
                   title: const Text('学习设置'),
                   subtitle: const Text('每日额度与 FSRS 期望保持率'),

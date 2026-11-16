@@ -14,12 +14,14 @@ class FavoriteEntry {
     required this.preview,
     required this.type,
     required this.clozeIndex,
+    this.wrongCount = 0,
   });
   final int cardId;
   final String deckName;
   final String preview;
   final NoteType type;
   final int clozeIndex;
+  final int wrongCount;
 }
 
 class FavoritePage {
@@ -38,6 +40,7 @@ class FavoriteRepository {
     int offset = 0,
     int? deckId,
     bool includeChildren = true,
+    bool wrongOnly = false,
   }) {
     if (limit < 1 || limit > 30 || offset < 0) {
       throw ArgumentError('收藏分页大小须为 1–30，偏移不能为负数');
@@ -49,11 +52,12 @@ class FavoriteRepository {
         SELECT d.id FROM decks d JOIN scope s ON d.parent_id = s.id WHERE ? = 1
       )
       SELECT c.id AS card_id, c.cloze_index, n.fields_json, n.note_type,
-        d.name AS deck_name
-      FROM favorites f JOIN cards c ON c.id = f.card_id
+        d.name AS deck_name, ${wrongOnly ? 'f.wrong_count' : '0'} AS wrong_count
+      FROM ${wrongOnly ? 'wrong_questions' : 'favorites'} f JOIN cards c ON c.id = f.card_id
       JOIN notes n ON n.id = c.note_id JOIN decks d ON d.id = n.deck_id
       WHERE (? IS NULL OR n.deck_id IN (SELECT id FROM scope))
-      ORDER BY f.created_at_utc DESC, c.id DESC LIMIT ? OFFSET ?''',
+        ${wrongOnly ? 'AND n.note_type IN (2, 3)' : ''}
+      ORDER BY ${wrongOnly ? 'f.last_wrong_at_utc' : 'f.created_at_utc'} DESC, c.id DESC LIMIT ? OFFSET ?''',
       variables: [
         Variable<int>(deckId),
         Variable(includeChildren ? 1 : 0),
@@ -61,7 +65,13 @@ class FavoriteRepository {
         Variable(limit + 1),
         Variable(offset),
       ],
-      readsFrom: {db.favorites, db.cards, db.notes, db.decks},
+      readsFrom: {
+        db.favorites,
+        db.wrongQuestions,
+        db.cards,
+        db.notes,
+        db.decks,
+      },
     );
     return query.watch().map(
       (rows) => FavoritePage(
@@ -88,6 +98,7 @@ class FavoriteRepository {
             preview: preview.isEmpty ? '图片或媒体卡片' : preview,
             type: type,
             clozeIndex: clozeIndex,
+            wrongCount: row.read<int>('wrong_count'),
           );
         }),
       ),

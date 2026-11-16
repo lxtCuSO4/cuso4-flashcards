@@ -9,6 +9,7 @@ import 'tables/media.dart';
 import 'tables/notes.dart';
 import 'tables/review_logs.dart';
 import 'tables/tags.dart';
+import 'tables/wrong_questions.dart';
 
 part 'app_database.g.dart';
 
@@ -23,6 +24,7 @@ part 'app_database.g.dart';
     ReviewLogs,
     Media,
     Favorites,
+    WrongQuestions,
     AppSettings,
     ImportJobs,
     ImportJobErrors,
@@ -33,13 +35,17 @@ class AppDatabase extends _$AppDatabase {
     : super(connection ?? openLocalDatabase());
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     beforeOpen: (_) async => customStatement('PRAGMA foreign_keys = ON'),
     onUpgrade: (migrator, from, to) async {
-      throw StateError('数据库版本 $from 无法升级至 $to，请保留数据并更新应用。');
+      if (from == 1 && to == 2) {
+        await migrator.createTable(wrongQuestions);
+      } else {
+        throw StateError('数据库版本 $from 无法升级至 $to，请保留数据并更新应用。');
+      }
     },
   );
 }

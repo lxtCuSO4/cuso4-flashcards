@@ -31,6 +31,9 @@ class ControlledPracticeRepository extends PracticeRepository {
     required bool includeChildren,
     required int count,
     bool favoritesOnly = false,
+    bool choicesOnly = false,
+    bool wrongOnly = false,
+    PracticeOrder order = PracticeOrder.random,
   }) async {
     calls++;
     if (gate != null) await gate!.future;
@@ -213,6 +216,99 @@ void main() {
     await close(tester);
   });
 
+  testWidgets(
+    'choice practice, mistakes preview, correct removal and favorite round are separate',
+    (tester) async {
+      final question = ChoiceQuestion(
+        type: NoteType.singleChoice,
+        prompt: '选择题专项题干',
+        options: ['错误选项', '正确选项'],
+        correctIndexes: [1],
+      );
+      final choiceId = await tester.runAsync(() async {
+        final noteId = await NoteRepository(db)
+            .createChoiceNote(deckId: deck, question: question);
+        return (await (db.select(
+          db.cards,
+        )..where((c) => c.noteId.equals(noteId))).getSingle()).id;
+      });
+      await open(tester);
+      container!.read(appRouterProvider).go('/choice-practice/$deck');
+      await tester.pumpAndSettle();
+      await tap(tester, '开始顺序练习');
+      expect(find.text('第 1 / 1 张'), findsOneWidget);
+      await tester.ensureVisible(find.byTooltip('收藏卡片'));
+      await tester.tap(find.byTooltip('收藏卡片'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('choice-option-0')));
+      await tester.tap(find.byKey(const ValueKey('choice-option-0')));
+      await tester.pumpAndSettle();
+      await tap(tester, '提交答案');
+      expect(find.text('回答错误'), findsOneWidget);
+      expect(find.byKey(const ValueKey('rating-good')), findsNothing);
+      expect(
+        (await tester.runAsync(() => db.select(db.wrongQuestions).get()))!
+            .single
+            .cardId,
+        choiceId,
+      );
+      await tap(tester, '完成本轮');
+      container!.read(appRouterProvider).go('/wrong-questions');
+      await tester.pumpAndSettle();
+      expect(find.text('选择题专项题干'), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(ValueKey('favorite-card-$choiceId')),
+      );
+      await tester.tap(find.byKey(ValueKey('favorite-card-$choiceId')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byKey(const ValueKey('choice-option-1')));
+      await tester.tap(find.byKey(const ValueKey('choice-option-1')));
+      await tester.pumpAndSettle();
+      await tap(tester, '提交答案');
+      expect(
+        (await tester.runAsync(() => db.select(db.wrongQuestions).get()))!,
+        hasLength(1),
+      );
+      container!.read(appRouterProvider).go('/wrong-practice');
+      await tester.pumpAndSettle();
+      await tap(tester, '开始顺序练习');
+      await tester.ensureVisible(find.byKey(const ValueKey('choice-option-1')));
+      await tester.tap(find.byKey(const ValueKey('choice-option-1')));
+      await tester.pumpAndSettle();
+      await tap(tester, '提交答案');
+      expect(find.text('回答正确'), findsOneWidget);
+      expect(
+        (await tester.runAsync(() => db.select(db.wrongQuestions).get()))!,
+        isEmpty,
+      );
+      expect(
+        (await tester.runAsync(() => db.select(db.favorites).get()))!
+            .single
+            .cardId,
+        choiceId,
+      );
+      await tap(tester, '完成本轮');
+      await tap(tester, '再练一轮');
+      expect(find.text('当前范围没有错题，答错的选择题会自动加入。'), findsOneWidget);
+      container!.read(appRouterProvider).go('/favorite-practice?choices=true');
+      await tester.pumpAndSettle();
+      await tap(tester, '开始顺序练习');
+      expect(find.text('第 1 / 1 张'), findsOneWidget);
+      await tap(tester, '直接看答案');
+      expect(find.text('未作答'), findsOneWidget);
+      expect(
+        (await tester.runAsync(() => db.select(db.wrongQuestions).get()))!,
+        isEmpty,
+      );
+      expect(
+        (await tester.runAsync(() => db.select(db.reviewLogs).get()))!,
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+      await close(tester);
+    },
+  );
+
   testWidgets('count validation, empty scope and include chapters are usable', (
     tester,
   ) async {
@@ -345,7 +441,7 @@ void main() {
       expect(find.text('跳过此卡'), findsOneWidget);
       await tap(tester, '跳过此卡');
       expect(find.text('已练习 1 张'), findsOneWidget);
-      expect(find.text('另有 1 张未能加载，已跳过'), findsOneWidget);
+      expect(find.text('另有 1 张已跳过'), findsOneWidget);
       await close(tester);
     },
   );

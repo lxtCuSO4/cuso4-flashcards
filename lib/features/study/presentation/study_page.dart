@@ -351,9 +351,16 @@ class _StudyPageState extends ConsumerState<StudyPage>
                                         ),
                                         const SizedBox(height: 12),
                                         const Text(
-                                          '到期卡片已学完，或已达到今日额度。\n学习步骤到期后，可以重新载入。',
+                                          '到期卡片已学完，或已达到今日额度。\n选择题请从牌组的「选择题练习」进入。',
                                           textAlign: TextAlign.center,
                                         ),
+                                        if (widget.deckId != null)
+                                          TextButton(
+                                            onPressed: () => context.push(
+                                              '/choice-practice/${widget.deckId}',
+                                            ),
+                                            child: const Text('选择题练习'),
+                                          ),
                                       ],
                                     ),
                                   ),

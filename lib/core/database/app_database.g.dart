@@ -3101,6 +3101,270 @@ class FavoritesCompanion extends UpdateCompanion<StoredFavorite> {
   }
 }
 
+class $WrongQuestionsTable extends WrongQuestions
+    with TableInfo<$WrongQuestionsTable, StoredWrongQuestion> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WrongQuestionsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<int> cardId = GeneratedColumn<int>(
+    'card_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cards (id) ON DELETE CASCADE',
+    ),
+  );
+  static const VerificationMeta _wrongCountMeta = const VerificationMeta(
+    'wrongCount',
+  );
+  @override
+  late final GeneratedColumn<int> wrongCount = GeneratedColumn<int>(
+    'wrong_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _lastWrongAtUtcMeta = const VerificationMeta(
+    'lastWrongAtUtc',
+  );
+  @override
+  late final GeneratedColumn<int> lastWrongAtUtc = GeneratedColumn<int>(
+    'last_wrong_at_utc',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [cardId, wrongCount, lastWrongAtUtc];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'wrong_questions';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredWrongQuestion> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('card_id')) {
+      context.handle(
+        _cardIdMeta,
+        cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta),
+      );
+    }
+    if (data.containsKey('wrong_count')) {
+      context.handle(
+        _wrongCountMeta,
+        wrongCount.isAcceptableOrUnknown(data['wrong_count']!, _wrongCountMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_wrongCountMeta);
+    }
+    if (data.containsKey('last_wrong_at_utc')) {
+      context.handle(
+        _lastWrongAtUtcMeta,
+        lastWrongAtUtc.isAcceptableOrUnknown(
+          data['last_wrong_at_utc']!,
+          _lastWrongAtUtcMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_lastWrongAtUtcMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {cardId};
+  @override
+  StoredWrongQuestion map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredWrongQuestion(
+      cardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}card_id'],
+      )!,
+      wrongCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}wrong_count'],
+      )!,
+      lastWrongAtUtc: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_wrong_at_utc'],
+      )!,
+    );
+  }
+
+  @override
+  $WrongQuestionsTable createAlias(String alias) {
+    return $WrongQuestionsTable(attachedDatabase, alias);
+  }
+}
+
+class StoredWrongQuestion extends DataClass
+    implements Insertable<StoredWrongQuestion> {
+  final int cardId;
+  final int wrongCount;
+  final int lastWrongAtUtc;
+  const StoredWrongQuestion({
+    required this.cardId,
+    required this.wrongCount,
+    required this.lastWrongAtUtc,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['card_id'] = Variable<int>(cardId);
+    map['wrong_count'] = Variable<int>(wrongCount);
+    map['last_wrong_at_utc'] = Variable<int>(lastWrongAtUtc);
+    return map;
+  }
+
+  WrongQuestionsCompanion toCompanion(bool nullToAbsent) {
+    return WrongQuestionsCompanion(
+      cardId: Value(cardId),
+      wrongCount: Value(wrongCount),
+      lastWrongAtUtc: Value(lastWrongAtUtc),
+    );
+  }
+
+  factory StoredWrongQuestion.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredWrongQuestion(
+      cardId: serializer.fromJson<int>(json['cardId']),
+      wrongCount: serializer.fromJson<int>(json['wrongCount']),
+      lastWrongAtUtc: serializer.fromJson<int>(json['lastWrongAtUtc']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'cardId': serializer.toJson<int>(cardId),
+      'wrongCount': serializer.toJson<int>(wrongCount),
+      'lastWrongAtUtc': serializer.toJson<int>(lastWrongAtUtc),
+    };
+  }
+
+  StoredWrongQuestion copyWith({
+    int? cardId,
+    int? wrongCount,
+    int? lastWrongAtUtc,
+  }) => StoredWrongQuestion(
+    cardId: cardId ?? this.cardId,
+    wrongCount: wrongCount ?? this.wrongCount,
+    lastWrongAtUtc: lastWrongAtUtc ?? this.lastWrongAtUtc,
+  );
+  StoredWrongQuestion copyWithCompanion(WrongQuestionsCompanion data) {
+    return StoredWrongQuestion(
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      wrongCount: data.wrongCount.present
+          ? data.wrongCount.value
+          : this.wrongCount,
+      lastWrongAtUtc: data.lastWrongAtUtc.present
+          ? data.lastWrongAtUtc.value
+          : this.lastWrongAtUtc,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredWrongQuestion(')
+          ..write('cardId: $cardId, ')
+          ..write('wrongCount: $wrongCount, ')
+          ..write('lastWrongAtUtc: $lastWrongAtUtc')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(cardId, wrongCount, lastWrongAtUtc);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredWrongQuestion &&
+          other.cardId == this.cardId &&
+          other.wrongCount == this.wrongCount &&
+          other.lastWrongAtUtc == this.lastWrongAtUtc);
+}
+
+class WrongQuestionsCompanion extends UpdateCompanion<StoredWrongQuestion> {
+  final Value<int> cardId;
+  final Value<int> wrongCount;
+  final Value<int> lastWrongAtUtc;
+  const WrongQuestionsCompanion({
+    this.cardId = const Value.absent(),
+    this.wrongCount = const Value.absent(),
+    this.lastWrongAtUtc = const Value.absent(),
+  });
+  WrongQuestionsCompanion.insert({
+    this.cardId = const Value.absent(),
+    required int wrongCount,
+    required int lastWrongAtUtc,
+  }) : wrongCount = Value(wrongCount),
+       lastWrongAtUtc = Value(lastWrongAtUtc);
+  static Insertable<StoredWrongQuestion> custom({
+    Expression<int>? cardId,
+    Expression<int>? wrongCount,
+    Expression<int>? lastWrongAtUtc,
+  }) {
+    return RawValuesInsertable({
+      if (cardId != null) 'card_id': cardId,
+      if (wrongCount != null) 'wrong_count': wrongCount,
+      if (lastWrongAtUtc != null) 'last_wrong_at_utc': lastWrongAtUtc,
+    });
+  }
+
+  WrongQuestionsCompanion copyWith({
+    Value<int>? cardId,
+    Value<int>? wrongCount,
+    Value<int>? lastWrongAtUtc,
+  }) {
+    return WrongQuestionsCompanion(
+      cardId: cardId ?? this.cardId,
+      wrongCount: wrongCount ?? this.wrongCount,
+      lastWrongAtUtc: lastWrongAtUtc ?? this.lastWrongAtUtc,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (cardId.present) {
+      map['card_id'] = Variable<int>(cardId.value);
+    }
+    if (wrongCount.present) {
+      map['wrong_count'] = Variable<int>(wrongCount.value);
+    }
+    if (lastWrongAtUtc.present) {
+      map['last_wrong_at_utc'] = Variable<int>(lastWrongAtUtc.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WrongQuestionsCompanion(')
+          ..write('cardId: $cardId, ')
+          ..write('wrongCount: $wrongCount, ')
+          ..write('lastWrongAtUtc: $lastWrongAtUtc')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $AppSettingsTable extends AppSettings
     with TableInfo<$AppSettingsTable, AppSetting> {
   @override
@@ -4034,6 +4298,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReviewLogsTable reviewLogs = $ReviewLogsTable(this);
   late final $MediaTable media = $MediaTable(this);
   late final $FavoritesTable favorites = $FavoritesTable(this);
+  late final $WrongQuestionsTable wrongQuestions = $WrongQuestionsTable(this);
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
   late final $ImportJobsTable importJobs = $ImportJobsTable(this);
   late final $ImportJobErrorsTable importJobErrors = $ImportJobErrorsTable(
@@ -4064,6 +4329,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     reviewLogs,
     media,
     favorites,
+    wrongQuestions,
     appSettings,
     importJobs,
     importJobErrors,
@@ -4121,6 +4387,13 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         limitUpdateKind: UpdateKind.delete,
       ),
       result: [TableUpdate('favorites', kind: UpdateKind.delete)],
+    ),
+    WritePropagation(
+      on: TableUpdateQuery.onTableName(
+        'cards',
+        limitUpdateKind: UpdateKind.delete,
+      ),
+      result: [TableUpdate('wrong_questions', kind: UpdateKind.delete)],
     ),
     WritePropagation(
       on: TableUpdateQuery.onTableName(
@@ -5128,6 +5401,24 @@ final class $$CardsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$WrongQuestionsTable, List<StoredWrongQuestion>>
+  _wrongQuestionsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.wrongQuestions,
+    aliasName: 'cards__id__wrong_questions__card_id',
+  );
+
+  $$WrongQuestionsTableProcessedTableManager get wrongQuestionsRefs {
+    final manager = $$WrongQuestionsTableTableManager(
+      $_db,
+      $_db.wrongQuestions,
+    ).filter((f) => f.cardId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_wrongQuestionsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$CardsTableFilterComposer extends Composer<_$AppDatabase, $CardsTable> {
@@ -5252,6 +5543,31 @@ class $$CardsTableFilterComposer extends Composer<_$AppDatabase, $CardsTable> {
           }) => $$FavoritesTableFilterComposer(
             $db: $db,
             $table: $db.favorites,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> wrongQuestionsRefs(
+    Expression<bool> Function($$WrongQuestionsTableFilterComposer f) f,
+  ) {
+    final $$WrongQuestionsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.wrongQuestions,
+      getReferencedColumn: (t) => t.cardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WrongQuestionsTableFilterComposer(
+            $db: $db,
+            $table: $db.wrongQuestions,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -5466,6 +5782,31 @@ class $$CardsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> wrongQuestionsRefs<T extends Object>(
+    Expression<T> Function($$WrongQuestionsTableAnnotationComposer a) f,
+  ) {
+    final $$WrongQuestionsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.wrongQuestions,
+      getReferencedColumn: (t) => t.cardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$WrongQuestionsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.wrongQuestions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$CardsTableTableManager
@@ -5485,6 +5826,7 @@ class $$CardsTableTableManager
             bool noteId,
             bool reviewLogsRefs,
             bool favoritesRefs,
+            bool wrongQuestionsRefs,
           })
         > {
   $$CardsTableTableManager(_$AppDatabase db, $CardsTable table)
@@ -5563,12 +5905,14 @@ class $$CardsTableTableManager
                 noteId = false,
                 reviewLogsRefs = false,
                 favoritesRefs = false,
+                wrongQuestionsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (reviewLogsRefs) db.reviewLogs,
                     if (favoritesRefs) db.favorites,
+                    if (wrongQuestionsRefs) db.wrongQuestions,
                   ],
                   addJoins:
                       <
@@ -5644,6 +5988,27 @@ class $$CardsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (wrongQuestionsRefs)
+                        await $_getPrefetchedData<
+                          StoredCard,
+                          $CardsTable,
+                          StoredWrongQuestion
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CardsTableReferences
+                              ._wrongQuestionsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CardsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).wrongQuestionsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.cardId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -5668,6 +6033,7 @@ typedef $$CardsTableProcessedTableManager =
         bool noteId,
         bool reviewLogsRefs,
         bool favoritesRefs,
+        bool wrongQuestionsRefs,
       })
     >;
 typedef $$TagsTableCreateCompanionBuilder = TagsCompanion Function({
@@ -7113,6 +7479,292 @@ typedef $$FavoritesTableProcessedTableManager =
       StoredFavorite,
       PrefetchHooks Function({bool cardId})
     >;
+typedef $$WrongQuestionsTableCreateCompanionBuilder =
+    WrongQuestionsCompanion Function({
+      Value<int> cardId,
+      required int wrongCount,
+      required int lastWrongAtUtc,
+    });
+typedef $$WrongQuestionsTableUpdateCompanionBuilder =
+    WrongQuestionsCompanion Function({
+      Value<int> cardId,
+      Value<int> wrongCount,
+      Value<int> lastWrongAtUtc,
+    });
+
+final class $$WrongQuestionsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $WrongQuestionsTable,
+          StoredWrongQuestion
+        > {
+  $$WrongQuestionsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $CardsTable _cardIdTable(_$AppDatabase db) =>
+      db.cards.createAlias('wrong_questions__card_id__cards__id');
+
+  $$CardsTableProcessedTableManager get cardId {
+    final $_column = $_itemColumn<int>('card_id')!;
+
+    final manager = $$CardsTableTableManager(
+      $_db,
+      $_db.cards,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_cardIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$WrongQuestionsTableFilterComposer
+    extends Composer<_$AppDatabase, $WrongQuestionsTable> {
+  $$WrongQuestionsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get wrongCount => $composableBuilder(
+    column: $table.wrongCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastWrongAtUtc => $composableBuilder(
+    column: $table.lastWrongAtUtc,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$CardsTableFilterComposer get cardId {
+    final $$CardsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardId,
+      referencedTable: $db.cards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardsTableFilterComposer(
+            $db: $db,
+            $table: $db.cards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WrongQuestionsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WrongQuestionsTable> {
+  $$WrongQuestionsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get wrongCount => $composableBuilder(
+    column: $table.wrongCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastWrongAtUtc => $composableBuilder(
+    column: $table.lastWrongAtUtc,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$CardsTableOrderingComposer get cardId {
+    final $$CardsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardId,
+      referencedTable: $db.cards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardsTableOrderingComposer(
+            $db: $db,
+            $table: $db.cards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WrongQuestionsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WrongQuestionsTable> {
+  $$WrongQuestionsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get wrongCount => $composableBuilder(
+    column: $table.wrongCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastWrongAtUtc => $composableBuilder(
+    column: $table.lastWrongAtUtc,
+    builder: (column) => column,
+  );
+
+  $$CardsTableAnnotationComposer get cardId {
+    final $$CardsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardId,
+      referencedTable: $db.cards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$WrongQuestionsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WrongQuestionsTable,
+          StoredWrongQuestion,
+          $$WrongQuestionsTableFilterComposer,
+          $$WrongQuestionsTableOrderingComposer,
+          $$WrongQuestionsTableAnnotationComposer,
+          $$WrongQuestionsTableCreateCompanionBuilder,
+          $$WrongQuestionsTableUpdateCompanionBuilder,
+          (StoredWrongQuestion, $$WrongQuestionsTableReferences),
+          StoredWrongQuestion,
+          PrefetchHooks Function({bool cardId})
+        > {
+  $$WrongQuestionsTableTableManager(
+    _$AppDatabase db,
+    $WrongQuestionsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WrongQuestionsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WrongQuestionsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WrongQuestionsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> cardId = const Value.absent(),
+                Value<int> wrongCount = const Value.absent(),
+                Value<int> lastWrongAtUtc = const Value.absent(),
+              }) => WrongQuestionsCompanion(
+                cardId: cardId,
+                wrongCount: wrongCount,
+                lastWrongAtUtc: lastWrongAtUtc,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> cardId = const Value.absent(),
+                required int wrongCount,
+                required int lastWrongAtUtc,
+              }) => WrongQuestionsCompanion.insert(
+                cardId: cardId,
+                wrongCount: wrongCount,
+                lastWrongAtUtc: lastWrongAtUtc,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$WrongQuestionsTable, StoredWrongQuestion>(table),
+                  $$WrongQuestionsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({cardId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (cardId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.cardId,
+                        referencedTable: $$WrongQuestionsTableReferences
+                            ._cardIdTable(db),
+                        referencedColumn: $$WrongQuestionsTableReferences
+                            ._cardIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$WrongQuestionsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WrongQuestionsTable,
+      StoredWrongQuestion,
+      $$WrongQuestionsTableFilterComposer,
+      $$WrongQuestionsTableOrderingComposer,
+      $$WrongQuestionsTableAnnotationComposer,
+      $$WrongQuestionsTableCreateCompanionBuilder,
+      $$WrongQuestionsTableUpdateCompanionBuilder,
+      (StoredWrongQuestion, $$WrongQuestionsTableReferences),
+      StoredWrongQuestion,
+      PrefetchHooks Function({bool cardId})
+    >;
 typedef $$AppSettingsTableCreateCompanionBuilder =
     AppSettingsCompanion Function({
       required String key,
@@ -7905,6 +8557,8 @@ class $AppDatabaseManager {
       $$MediaTableTableManager(_db, _db.media);
   $$FavoritesTableTableManager get favorites =>
       $$FavoritesTableTableManager(_db, _db.favorites);
+  $$WrongQuestionsTableTableManager get wrongQuestions =>
+      $$WrongQuestionsTableTableManager(_db, _db.wrongQuestions);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
   $$ImportJobsTableTableManager get importJobs =>

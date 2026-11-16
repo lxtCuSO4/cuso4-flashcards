@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
 import '../../../core/feedback/feedback_controller.dart';
@@ -11,6 +12,7 @@ import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../study/domain/study_card.dart';
+import '../../decks/domain/choice_question.dart';
 import '../data/practice_repository.dart';
 import 'practice_card_face.dart';
 
@@ -20,10 +22,14 @@ class PracticePage extends ConsumerStatefulWidget {
     this.deckId,
     this.favoritesOnly = false,
     this.includeChildren = true,
+    this.choicesOnly = false,
+    this.wrongOnly = false,
   });
   final int? deckId;
   final bool favoritesOnly;
   final bool includeChildren;
+  final bool choicesOnly;
+  final bool wrongOnly;
   @override
   ConsumerState<PracticePage> createState() => _PracticePageState();
 }
@@ -43,11 +49,28 @@ class _PracticePageState extends ConsumerState<PracticePage>
   StudyCard? _card;
   int _index = 0;
   int _skipped = 0;
+  int _correct = 0;
+  int _incorrect = 0;
+  int _unanswered = 0;
+  bool _choiceSubmitted = false;
+  late PracticeOrder _order;
+
+  bool get _choiceMode => widget.choicesOnly || widget.wrongOnly;
+  String get _title => widget.wrongOnly
+      ? '错题练习'
+      : widget.favoritesOnly && _choiceMode
+      ? '收藏选择题练习'
+      : _choiceMode
+      ? '选择题练习'
+      : widget.favoritesOnly
+      ? '收藏${_order == PracticeOrder.random ? '随机' : '顺序'}练习'
+      : '${_order == PracticeOrder.random ? '随机' : '顺序'}练习';
 
   @override
   void initState() {
     super.initState();
     _includeChildren = widget.includeChildren;
+    _order = _choiceMode ? PracticeOrder.sequential : PracticeOrder.random;
     WidgetsBinding.instance.addObserver(this);
     _audio = LocalAudioController(ref.read(mediaRepositoryProvider));
   }
@@ -85,6 +108,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
             includeChildren: _includeChildren,
             count: int.parse(_count.text.trim()),
             favoritesOnly: widget.favoritesOnly,
+            choicesOnly: _choiceMode,
+            wrongOnly: widget.wrongOnly,
+            order: _order,
           );
       if (!mounted) return;
       if (round.cardIds.isEmpty) {
@@ -93,7 +119,11 @@ class _PracticePageState extends ConsumerState<PracticePage>
           _round = null;
           _card = null;
           _completed = false;
-          _error = widget.favoritesOnly
+          _error = widget.wrongOnly
+              ? '当前范围没有错题，答错的选择题会自动加入。'
+              : _choiceMode
+              ? '当前范围没有${widget.favoritesOnly ? '收藏的' : ''}选择题。可调整范围，或添加、导入选择题。'
+              : widget.favoritesOnly
               ? '当前范围没有收藏卡片。可调整章节范围，或先收藏卡片。'
               : '当前范围没有卡片。可包含子章节，或先添加、导入卡片。';
         });
@@ -103,6 +133,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
         _round = round;
         _index = 0;
         _skipped = 0;
+        _correct = 0;
+        _incorrect = 0;
+        _unanswered = 0;
         _completed = false;
       });
       await _load();
@@ -119,6 +152,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
     setState(() {
       _busy = true;
       _answerVisible = false;
+      _choiceSubmitted = false;
       _card = null;
       _error = null;
     });
@@ -151,6 +185,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
     await _audio.stop();
     if (!mounted) return;
     if (skip) _skipped++;
+    if (!skip && _card?.note.type.isChoice == true && !_choiceSubmitted) {
+      _unanswered++;
+    }
     if (_index + 1 == _round!.cardIds.length) {
       setState(() {
         _completed = true;
@@ -163,6 +200,57 @@ class _PracticePageState extends ConsumerState<PracticePage>
     }
     _index++;
     await _load();
+  }
+
+  Future<void> _submitChoice(Set<int> selected) async {
+    if (_busy || _choiceSubmitted || _card == null) {
+      throw StateError('请等待当前操作完成。');
+    }
+    final item = _card!;
+    setState(() => _busy = true);
+    try {
+      final correct = await ref
+          .read(practiceRepositoryProvider)
+          .submitChoice(
+            item.card.id,
+            selected,
+            expectedQuestion: ChoiceQuestion.fromFields(
+              item.note.type,
+              item.note.fields,
+            ),
+          );
+      if (!mounted) return;
+      setState(() {
+        _choiceSubmitted = true;
+        if (correct) {
+          _correct++;
+        } else {
+          _incorrect++;
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _favorite() async {
+    final item = _card;
+    if (_busy || item == null) return;
+    setState(() => _busy = true);
+    unawaited(FeedbackScope.of(context).tap());
+    try {
+      await ref
+          .read(studyRepositoryProvider)
+          .setFavorite(item.card.id, !item.card.isFavorite);
+      final updated = await ref
+          .read(studyRepositoryProvider)
+          .getStudyCard(item.card.id);
+      if (mounted) setState(() => _card = updated);
+    } catch (error) {
+      if (mounted) showActionError(context, error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   void _configure() {
@@ -191,11 +279,11 @@ class _PracticePageState extends ConsumerState<PracticePage>
             ?.name ??
         '当前牌组';
     return PageFrame(
-      title: widget.favoritesOnly ? '收藏随机练习' : '随机练习',
+      title: _title,
       header: TouhouTag(
         widget.favoritesOnly ? TouhouPlace.bookmarks : TouhouPlace.bamboo,
       ),
-      subtitle: '不改变 FSRS 进度、每日额度和学习统计',
+      subtitle: '独立练习，不参与记忆排程；选择题答错记入错题，答对自动移出',
       scrollController: _scroll,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -207,7 +295,33 @@ class _PracticePageState extends ConsumerState<PracticePage>
           ],
           const SizedBox(height: 24),
           if (round == null) ...[
-            const Text('随时抽卡，自由巩固。包含未学、已学和未到期卡片，同一轮不重复。'),
+            Text(
+              _choiceMode
+                  ? '单选、多选独立刷题。提交后判分；直接看答案或跳过不会改变错题列表。'
+                  : '随时抽卡，自由巩固。包含未学、已学和未到期卡片，同一轮不重复。',
+            ),
+            const SizedBox(height: 16),
+            SegmentedButton<PracticeOrder>(
+              segments: const [
+                ButtonSegment(
+                  value: PracticeOrder.sequential,
+                  label: Text('顺序练习'),
+                  icon: Icon(Icons.format_list_numbered),
+                ),
+                ButtonSegment(
+                  value: PracticeOrder.random,
+                  label: Text('随机练习'),
+                  icon: Icon(Icons.shuffle),
+                ),
+              ],
+              selected: {_order},
+              onSelectionChanged: _busy
+                  ? null
+                  : (value) {
+                      unawaited(FeedbackScope.of(context).tap());
+                      setState(() => _order = value.single);
+                    },
+            ),
             const SizedBox(height: 24),
             Form(
               key: _form,
@@ -253,14 +367,19 @@ class _PracticePageState extends ConsumerState<PracticePage>
                       },
               ),
             const SizedBox(height: 24),
-            PressableAction(label: '开始随机练习', onPressed: _busy ? null : _start),
+            PressableAction(
+              label: _order == PracticeOrder.random ? '开始随机练习' : '开始顺序练习',
+              onPressed: _busy ? null : _start,
+            ),
           ] else if (_completed) ...[
             Text('本轮练习完成', style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 16),
             Text('已练习 ${round.cardIds.length - _skipped} 张'),
-            if (_skipped > 0) Text('另有 $_skipped 张未能加载，已跳过'),
+            if (_skipped > 0) Text('另有 $_skipped 张已跳过'),
+            if (_correct + _incorrect + _unanswered > 0)
+              Text('答对 $_correct 题 · 答错 $_incorrect 题 · 未作答 $_unanswered 题'),
             const SizedBox(height: 16),
-            const Text('本轮未写入学习记录。下一轮重新随机抽取，可能遇到本轮的卡片。'),
+            const Text('不改变记忆进度和学习统计。选择题答错加入错题列表，答对自动移出；收藏保持独立。'),
             const SizedBox(height: 24),
             PressableAction(label: '再练一轮', onPressed: _busy ? null : _start),
             const SizedBox(height: 12),
@@ -277,13 +396,48 @@ class _PracticePageState extends ConsumerState<PracticePage>
             LinearProgressIndicator(value: _index / round.cardIds.length),
             const SizedBox(height: 24),
             if (_card case final item?) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  IconButton(
+                    tooltip: item.card.isFavorite ? '取消收藏' : '收藏卡片',
+                    onPressed: _busy ? null : _favorite,
+                    icon: Icon(
+                      item.card.isFavorite
+                          ? Icons.bookmark
+                          : Icons.bookmark_border,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '编辑卡片',
+                    onPressed: _busy
+                        ? null
+                        : () async {
+                            setState(() => _busy = true);
+                            await _audio.stop();
+                            if (!context.mounted) return;
+                            try {
+                              await context.push(
+                                '/decks/${item.note.deckId}/edit/${item.note.id}',
+                              );
+                            } finally {
+                              if (mounted) await _load();
+                            }
+                          },
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                ],
+              ),
               PracticeCardFace(
                 key: ValueKey('practice-card-${item.card.id}'),
                 item: item,
                 answerVisible: _answerVisible,
                 media: ref.read(mediaRepositoryProvider),
                 audio: _audio,
-                onReveal: () => setState(() => _answerVisible = true),
+                onReveal: _busy
+                    ? null
+                    : () => setState(() => _answerVisible = true),
+                onSubmit: _submitChoice,
               ),
               const SizedBox(height: 24),
               if (!_answerVisible && !item.note.type.isChoice)
@@ -297,6 +451,11 @@ class _PracticePageState extends ConsumerState<PracticePage>
                 PressableAction(
                   label: _index + 1 == round.cardIds.length ? '完成本轮' : '下一张',
                   onPressed: _busy ? null : _next,
+                ),
+              if (!_answerVisible)
+                TextButton(
+                  onPressed: _busy ? null : () => _next(skip: true),
+                  child: const Text('跳过此题'),
                 ),
             ],
           ],

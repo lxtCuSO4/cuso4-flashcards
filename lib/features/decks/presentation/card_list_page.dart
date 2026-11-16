@@ -60,6 +60,11 @@ class _CardListPageState extends ConsumerState<CardListPage> {
           ),
           const SizedBox(height: 12),
           PressableAction(
+            label: '选择题练习',
+            onPressed: () => context.push('/choice-practice/${widget.deckId}'),
+          ),
+          const SizedBox(height: 12),
+          PressableAction(
             label: '背卡模式',
             onPressed: () => context.push('/recitation/${widget.deckId}'),
           ),

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:cuso4_flashcards/core/database/app_database.dart';
 import 'package:cuso4_flashcards/core/media/local_audio_controller.dart';
@@ -31,6 +32,64 @@ void main() {
     await tester.tap(finder);
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'submission locks until saved and failure retains selection for retry',
+    (tester) async {
+      var revealed = false;
+      var calls = 0;
+      final gate = Completer<void>();
+      final selections = <Set<int>>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChoiceCardFace(
+                question: ChoiceQuestion(
+                  type: NoteType.singleChoice,
+                  prompt: '事务题',
+                  options: ['甲', '乙'],
+                  correctIndexes: [1],
+                ),
+                media: media,
+                audio: audio,
+                answerVisible: false,
+                onReveal: () => revealed = true,
+                onSubmit: (selected) async {
+                  selections.add(selected);
+                  calls++;
+                  if (calls == 1) await gate.future;
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tap(tester, find.byKey(const ValueKey('choice-option-1')));
+      await tester.ensureVisible(find.text('提交答案'));
+      await tester.tap(find.text('提交答案'));
+      await tester.pump();
+      expect(find.text('正在保存…'), findsOneWidget);
+      expect(revealed, false);
+      expect(
+        tester
+            .widget<InkWell>(find.byKey(const ValueKey('choice-option-0')))
+            .onTap,
+        isNull,
+      );
+      gate.completeError(StateError('保存失败，请重试'));
+      await tester.pumpAndSettle();
+      expect(find.text('保存失败，请重试'), findsOneWidget);
+      await tap(tester, find.text('提交答案'));
+      expect(calls, 2);
+      expect(selections, [
+        {1},
+        {1},
+      ]);
+      expect(revealed, true);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   for (final type in [NoteType.singleChoice, NoteType.multipleChoice]) {
     testWidgets(

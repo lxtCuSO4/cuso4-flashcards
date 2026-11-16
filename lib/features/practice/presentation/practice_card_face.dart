@@ -17,12 +17,14 @@ class PracticeCardFace extends StatelessWidget {
     required this.media,
     required this.audio,
     this.onReveal,
+    this.onSubmit,
   });
   final StudyCard item;
   final bool answerVisible;
   final MediaRepository media;
   final LocalAudioController audio;
   final VoidCallback? onReveal;
+  final Future<void> Function(Set<int>)? onSubmit;
 
   Widget _content(String source) =>
       CardContent(source: source, media: media, audio: audio);
@@ -46,6 +48,7 @@ class PracticeCardFace extends StatelessWidget {
                 answerVisible: answerVisible,
                 enabled: onReveal != null,
                 onReveal: onReveal ?? () {},
+                onSubmit: onSubmit,
               ),
             ),
           ),

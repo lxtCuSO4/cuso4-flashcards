@@ -402,6 +402,7 @@ void main() {
       addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+      await tester.ensureVisible(find.byKey(ValueKey('favorite-card-$cardId')));
       await tester.tap(find.byKey(ValueKey('favorite-card-$cardId')));
       await tester.pumpAndSettle();
       tester.view.physicalSize = const Size(2001, 1125);

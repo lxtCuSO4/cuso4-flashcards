@@ -67,13 +67,13 @@ class StudyRepository {
           COUNT(DISTINCT CASE WHEN json_extract(r.before_state_json, '\$.state') = 0 THEN r.card_id END) AS new_used,
           COUNT(DISTINCT CASE WHEN json_extract(r.before_state_json, '\$.state') = 2 THEN r.card_id END) AS review_used
         FROM review_logs r JOIN cards c ON c.id = r.card_id JOIN notes n ON n.id = c.note_id
-        WHERE r.reviewed_at_utc >= ? AND r.reviewed_at_utc < ? GROUP BY 1
+        WHERE r.reviewed_at_utc >= ? AND r.reviewed_at_utc < ? AND n.note_type IN (0, 1) GROUP BY 1
       ), eligible AS (
         SELECT c.*, n.deck_id, COALESCE(d.new_used, 0) AS new_used,
           COALESCE(d.review_used, 0) AS review_used,
           CASE WHEN c.state = 2 THEN 0 WHEN c.state IN (1, 3) THEN 1 ELSE 2 END AS priority
         FROM cards c JOIN notes n ON n.id = c.note_id LEFT JOIN daily d ON d.deck_id = n.deck_id
-        WHERE n.deck_id IN (SELECT id FROM scope) AND c.state BETWEEN 0 AND 3
+        WHERE n.deck_id IN (SELECT id FROM scope) AND c.state BETWEEN 0 AND 3 AND n.note_type IN (0, 1)
       ), ranked AS (
         SELECT *, ROW_NUMBER() OVER (PARTITION BY deck_id, state ORDER BY due_at_utc, id) AS deck_position
         FROM eligible WHERE due_at_utc <= ?
@@ -214,6 +214,9 @@ class StudyRepository {
     final note = await (db.select(
       db.notes,
     )..where((n) => n.id.equals(current.noteId))).getSingle();
+    if (note.noteType != 0 && note.noteType != 1) {
+      throw StateError('选择题请使用选择题练习，不参与记忆排程。');
+    }
     final day = await _studyDay(now);
     if (scheduler case CalendarScheduler calendar) {
       if (expectedCalendarDay != null &&
@@ -353,6 +356,7 @@ class StudyRepository {
       COUNT(DISTINCT CASE WHEN json_extract(r.before_state_json, '\$.state') = 2 THEN r.card_id END) AS review_used
       FROM review_logs r JOIN cards c ON c.id = r.card_id JOIN notes n ON n.id = c.note_id
       WHERE r.reviewed_at_utc >= ? AND r.reviewed_at_utc < ?
+        AND n.note_type IN (0, 1)
         AND COALESCE(json_extract(r.before_state_json, '\$.deckId'), n.deck_id) = ?''',
           variables: [
             Variable(day.start.millisecondsSinceEpoch),

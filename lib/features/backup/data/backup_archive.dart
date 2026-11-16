@@ -62,7 +62,8 @@ class BackupArchive {
     final expected = AppDatabase(NativeDatabase.memory());
     try {
       db.execute('PRAGMA trusted_schema=OFF');
-      if (db.select('PRAGMA user_version').single.values.single != 1 ||
+      final version = db.select('PRAGMA user_version').single.values.single;
+      if (![1, 2].contains(version) ||
           db
               .select('PRAGMA integrity_check')
               .any((r) => r.values.single != 'ok') ||
@@ -76,10 +77,20 @@ class BackupArchive {
           .map((r) => [r['name'], r['sql']])
           .toList();
       final reference = (await expected.customSelect(query).get())
+          .where((r) => version != 1 || r.data['name'] != 'wrong_questions')
           .map((r) => [r.data['name'], r.data['sql']])
           .toList();
       // Reject additional views/triggers/altered constraints, not just missing tables.
       if (jsonEncode(schema) != jsonEncode(reference)) throw invalidBackup;
+      if (version == 2 &&
+          db.select(
+            '''SELECT w.card_id FROM wrong_questions w
+          JOIN cards c ON c.id = w.card_id JOIN notes n ON n.id = c.note_id
+          WHERE n.note_type NOT IN (2, 3) OR typeof(w.wrong_count) != 'integer'
+            OR w.wrong_count < 1 OR typeof(w.last_wrong_at_utc) != 'integer' ''',
+          ).isNotEmpty) {
+        throw invalidBackup;
+      }
       for (final row in db.select('SELECT note_type, fields_json FROM notes')) {
         final type = row['note_type'];
         if (type is! int || type < 0 || type >= NoteType.values.length) {
@@ -151,6 +162,8 @@ class BackupArchive {
         createdAtUtc: DateTime.now().toUtc(),
         database: database,
         media: media,
+        databaseSchemaVersion:
+            db.select('PRAGMA user_version').single.values.single as int,
       );
       encoder.addArchiveFile(
         ArchiveFile.string('manifest.json', jsonEncode(manifest.toJson())),
@@ -251,6 +264,10 @@ class BackupArchive {
     await validateDatabase(database);
     final db = sqlite3.open(database.path, mode: OpenMode.readOnly);
     try {
+      if (db.select('PRAGMA user_version').single.values.single !=
+          manifest.databaseSchemaVersion) {
+        throw invalidBackup;
+      }
       final refs = referencedMedia(db);
       if (refs.length != manifest.media.length ||
           refs.entries.any((e) => manifest.media[e.key]?.bytes != e.value)) {

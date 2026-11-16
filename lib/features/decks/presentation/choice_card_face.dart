@@ -21,6 +21,7 @@ class ChoiceCardFace extends StatefulWidget {
     required this.onReveal,
     this.enabled = true,
     this.readingOnly = false,
+    this.onSubmit,
     this.draftImages = const {},
   });
   final ChoiceQuestion question;
@@ -30,6 +31,7 @@ class ChoiceCardFace extends StatefulWidget {
   final VoidCallback onReveal;
   final bool enabled;
   final bool readingOnly;
+  final Future<void> Function(Set<int>)? onSubmit;
   final Map<String, Uint8List> draftImages;
 
   @override
@@ -40,6 +42,8 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
   late List<int> _order;
   final _selected = <int>{};
   bool _attempted = false;
+  bool _submitting = false;
+  String? _submitError;
 
   @override
   void initState() {
@@ -52,6 +56,7 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
     if (widget.question.shuffle) _order.shuffle();
     _selected.clear();
     _attempted = false;
+    _submitError = null;
   }
 
   @override
@@ -68,7 +73,7 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
   );
 
   void _choose(int index) {
-    if (!widget.enabled || widget.answerVisible) return;
+    if (!widget.enabled || widget.answerVisible || _submitting) return;
     unawaited(FeedbackScope.of(context).tap());
     setState(() {
       if (widget.question.type == NoteType.singleChoice) {
@@ -79,6 +84,35 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
         _selected.remove(index);
       }
     });
+  }
+
+  Future<void> _submit() async {
+    if (_submitting ||
+        !widget.enabled ||
+        widget.answerVisible ||
+        _selected.isEmpty) {
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _submitError = null;
+    });
+    try {
+      await widget.onSubmit?.call(Set.unmodifiable(_selected));
+      if (!mounted) return;
+      setState(() => _attempted = true);
+      widget.onReveal();
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _submitError = error is StateError
+              ? error.message
+              : '答案保存失败，选择已保留，请重试提交。',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   String _letters(Iterable<int> indexes) => indexes
@@ -132,7 +166,7 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
                 checked: widget.readingOnly ? isAnswer : selected,
                 inMutuallyExclusiveGroup:
                     question.type == NoteType.singleChoice,
-                enabled: widget.enabled && !revealed,
+                enabled: widget.enabled && !revealed && !_submitting,
                 child: Material(
                   color: selected || revealed && isAnswer
                       ? tint.withValues(alpha: .10)
@@ -148,7 +182,7 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     key: ValueKey('choice-option-$index'),
-                    onTap: widget.enabled && !revealed
+                    onTap: widget.enabled && !revealed && !_submitting
                         ? () => _choose(index)
                         : null,
                     child: ConstrainedBox(
@@ -211,16 +245,21 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
         ],
         if (!widget.answerVisible) ...[
           PressableAction(
-            label: '提交答案',
-            onPressed: !widget.enabled || _selected.isEmpty
+            label: _submitting ? '正在保存…' : '提交答案',
+            onPressed: !widget.enabled || _selected.isEmpty || _submitting
                 ? null
-                : () {
-                    setState(() => _attempted = true);
-                    widget.onReveal();
-                  },
+                : _submit,
           ),
+          if (_submitError case final error?)
+            Semantics(
+              liveRegion: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(error, style: TextStyle(color: scheme.error)),
+              ),
+            ),
           TextButton(
-            onPressed: !widget.enabled
+            onPressed: !widget.enabled || _submitting
                 ? null
                 : () {
                     unawaited(FeedbackScope.of(context).tap());

@@ -16,7 +16,10 @@ class ImportRecovery {
   static final _hash = RegExp(r'^[a-f0-9]{64}$');
 
   void run(Database database) {
-    if (database.select('PRAGMA user_version').single.values.single != 1) {
+    if (![
+      1,
+      2,
+    ].contains(database.select('PRAGMA user_version').single.values.single)) {
       return;
     }
     database.execute('BEGIN IMMEDIATE');

@@ -56,8 +56,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => PracticePage(
           deckId: int.tryParse(state.uri.queryParameters['deckId'] ?? ''),
           favoritesOnly: true,
+          choicesOnly: state.uri.queryParameters['choices'] == 'true',
           includeChildren: state.uri.queryParameters['children'] != 'false',
         ),
+      ),
+      GoRoute(
+        path: '/choice-practice/:deckId',
+        builder: (_, state) => PracticePage(
+          deckId: int.parse(state.pathParameters['deckId']!),
+          choicesOnly: true,
+        ),
+      ),
+      GoRoute(
+        path: '/wrong-practice',
+        builder: (_, state) => PracticePage(
+          deckId: int.tryParse(state.uri.queryParameters['deckId'] ?? ''),
+          includeChildren: state.uri.queryParameters['children'] != 'false',
+          wrongOnly: true,
+        ),
+      ),
+      GoRoute(
+        path: '/wrong-questions',
+        builder: (_, _) => const FavoritesPage(wrongOnly: true),
+        routes: [
+          GoRoute(
+            path: ':cardId',
+            builder: (_, state) => FavoritePreviewPage(
+              cardId: int.parse(state.pathParameters['cardId']!),
+              title: '错题预览',
+            ),
+          ),
+        ],
       ),
       GoRoute(
         path: '/practice/:deckId',

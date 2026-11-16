@@ -5,6 +5,7 @@ import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart';
 import 'package:cuso4_flashcards/core/database/app_database.dart';
 import 'package:cuso4_flashcards/features/backup/data/backup_service.dart';
+import 'package:cuso4_flashcards/features/backup/data/backup_archive.dart';
 import 'package:cuso4_flashcards/features/backup/data/restore_service.dart';
 import 'package:cuso4_flashcards/features/backup/domain/backup_manifest.dart';
 import 'package:cuso4_flashcards/features/decks/data/deck_repository.dart';
@@ -12,6 +13,7 @@ import 'package:cuso4_flashcards/features/decks/data/note_repository.dart';
 import 'package:cuso4_flashcards/features/decks/domain/choice_question.dart';
 import 'package:cuso4_flashcards/features/decks/domain/note.dart';
 import 'package:cuso4_flashcards/features/study/data/study_repository.dart';
+import 'package:cuso4_flashcards/features/practice/data/practice_repository.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,6 +102,7 @@ void main() {
     );
     expect(parsed.toJson(), value.toJson());
     expect(parsed.formatVersion, 2);
+    expect(parsed.databaseSchemaVersion, 2);
     expect(
       BackupManifest.fromJson(value.toJson()..['formatVersion'] = 1)
           .formatVersion,
@@ -176,6 +179,10 @@ void main() {
       shuffle: true,
     );
     await NoteRepository(db).createChoiceNote(deckId: deck, question: question);
+    final choiceCard = (await db.select(db.cards).get()).last.id;
+    await PracticeRepository(db)
+        .submitChoice(choiceCard, {2}, expectedQuestion: question);
+    await StudyRepository(db).setFavorite(choiceCard, true);
     final file = await export();
     final prepared = await RestoreService(root).prepare(file);
     final copy = sql.sqlite3.open(
@@ -196,6 +203,19 @@ void main() {
       );
       expect(restored.toFields(), question.toFields());
       expect(
+        copy
+            .select('SELECT card_id, wrong_count FROM wrong_questions')
+            .single
+            .values,
+        [choiceCard, 1],
+      );
+      expect(
+        copy.select('SELECT card_id FROM favorites WHERE card_id = ?', [
+          choiceCard,
+        ]),
+        hasLength(1),
+      );
+      expect(
         copy.select('SELECT repetitions FROM cards WHERE id = ?', [
           cardId,
         ]).single['repetitions'],
@@ -209,6 +229,44 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'schema 1 backup still validates and restores, then migrates on opening',
+    () async {
+      final snapshot = File(p.join(root.path, 'old.sqlite'));
+      await db.customStatement('VACUUM INTO ?', [snapshot.path]);
+      final legacy = sql.sqlite3.open(snapshot.path);
+      legacy.execute('DROP TABLE wrong_questions');
+      legacy.execute('PRAGMA user_version = 1');
+      legacy.close();
+      await close();
+      final archive = p.join(root.path, 'old.cuso4backup');
+      await BackupArchive.encode(
+        snapshot.path,
+        p.join(root.path, 'media'),
+        archive,
+      );
+      final zip = ZipDecoder().decodeBytes(await File(archive).readAsBytes());
+      final manifest = jsonDecode(
+        utf8.decode(zip.findFile('manifest.json')!.content as List<int>),
+      ) as Map;
+      expect(manifest['databaseSchemaVersion'], 1);
+      final prepared = await RestoreService(root).prepare(File(archive));
+      final reopened = AppDatabase(
+        NativeDatabase(File(p.join(prepared.path, 'cuso4.sqlite'))),
+      );
+      try {
+        expect(await reopened.select(reopened.wrongQuestions).get(), isEmpty);
+        expect((await reopened.select(reopened.cards).get()).single.id, cardId);
+        expect(
+          (await reopened.select(reopened.favorites).get()).single.cardId,
+          cardId,
+        );
+      } finally {
+        await reopened.close();
+      }
+    },
+  );
 
   test(
     'cancel removes incomplete package without touching live data',

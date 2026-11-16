@@ -15,8 +15,13 @@ import '../../decks/presentation/choice_card_face.dart';
 import '../../study/domain/study_card.dart';
 
 class FavoritePreviewPage extends ConsumerStatefulWidget {
-  const FavoritePreviewPage({super.key, required this.cardId});
+  const FavoritePreviewPage({
+    super.key,
+    required this.cardId,
+    this.title = '收藏预览',
+  });
   final int cardId;
+  final String title;
   @override
   ConsumerState<FavoritePreviewPage> createState() =>
       _FavoritePreviewPageState();
@@ -66,8 +71,8 @@ class _FavoritePreviewPageState extends ConsumerState<FavoritePreviewPage>
 
   @override
   Widget build(BuildContext context) => PageFrame(
-    title: '收藏预览',
-    subtitle: '仅预览，不修改学习进度',
+    title: widget.title,
+    subtitle: widget.title == '收藏预览' ? '仅预览，不修改学习进度' : '仅预览，不修改学习进度或错题列表',
     child: FutureBuilder<StudyCard>(
       future: _card,
       builder: (context, snapshot) {

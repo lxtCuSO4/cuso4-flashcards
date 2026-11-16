@@ -48,7 +48,7 @@ class BackupManifest {
     required this.createdAtUtc,
     required this.database,
     required this.media,
-    this.appVersion = '1.0.0+1',
+    this.appVersion = '1.1.0+2',
     this.formatVersion = 2,
   });
   final DateTime createdAtUtc;

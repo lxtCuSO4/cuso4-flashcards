@@ -50,6 +50,7 @@ void main() {
     PreparedImage? image,
     Future<PreparedImage?> Function()? picker,
     bool dark = false,
+    int? noteId,
   }) async {
     tester.view.physicalSize = const Size(1220, 2712);
     tester.view.devicePixelRatio = 3;
@@ -63,7 +64,7 @@ void main() {
           routes: [
             GoRoute(
               path: 'edit',
-              builder: (_, _) => NoteEditorPage(deckId: deck),
+              builder: (_, _) => NoteEditorPage(deckId: deck, noteId: noteId),
             ),
           ],
         ),
@@ -107,6 +108,81 @@ void main() {
     await tester.tap(find.text(label));
     await tester.pumpAndSettle();
   }
+
+  for (final type in NoteType.values) {
+    testWidgets(
+      'existing ${type.name} fields load and save without resetting cards',
+      (tester) async {
+        final repository = NoteRepository(
+          db,
+          mediaRepository: MediaRepository(db, directory: mediaRoot),
+        );
+        final id = type.isChoice
+            ? await repository.createChoiceNote(
+                deckId: deck,
+                question: ChoiceQuestion(
+                  type: type,
+                  prompt: '原题干',
+                  options: ['甲', '乙'],
+                  correctIndexes: type == NoteType.singleChoice ? [0] : [0, 1],
+                  explanation: '原解析',
+                ),
+              )
+            : type == NoteType.cloze
+            ? await repository.createClozeNote(
+                deckId: deck,
+                text: '原文 {{c1::答案}}',
+                extra: '原解析',
+              )
+            : await repository.createBasicNote(
+                deckId: deck,
+                front: '原题干',
+                back: '原解析',
+              );
+        final before = await db.select(db.cards).get();
+        await open(tester, noteId: id);
+        final front = tester.widget<TextField>(
+          find.byKey(const ValueKey('note-front')),
+        );
+        expect(
+          front.controller!.text,
+          type == NoteType.cloze ? '原文 {{c1::答案}}' : '原题干',
+        );
+        if (type.isChoice) {
+          expect(
+            tester
+                .widget<TextField>(
+                  find.byKey(const ValueKey('choice-editor-option-0')),
+                )
+                .controller!
+                .text,
+            '甲',
+          );
+        }
+        final back = find.byKey(const ValueKey('note-back'));
+        await tester.ensureVisible(back);
+        await tester.enterText(back, '修正解析');
+        await tap(tester, '保存卡片');
+        expect(
+          (await repository.getNote(id))
+              .fields[type == NoteType.cloze ? 'extra' : 'back'],
+          '修正解析',
+        );
+        expect(await db.select(db.cards).get(), before);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+
+  testWidgets('missing note shows retry and cannot save as a new note', (
+    tester,
+  ) async {
+    await open(tester, noteId: 987654);
+    expect(find.text('重试读取卡片'), findsOneWidget);
+    expect(find.text('保存卡片'), findsNothing);
+    expect(await db.select(db.notes).get(), isEmpty);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'inserts at selection, previews draft image without writes, discard is guarded',

@@ -58,6 +58,11 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             label: '随机练习',
             onPressed: () => context.push('/practice/${widget.deckId}'),
           ),
+          const SizedBox(height: 12),
+          PressableAction(
+            label: '背卡模式',
+            onPressed: () => context.push('/recitation/${widget.deckId}'),
+          ),
           const SizedBox(height: 16),
           TextButton.icon(
             onPressed: () =>

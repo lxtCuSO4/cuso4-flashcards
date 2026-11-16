@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../data/study_repository.dart';
+import '../data/calendar_scheduler.dart';
 import '../domain/scheduler.dart';
 import '../domain/study_card.dart';
 import '../../settings/domain/study_settings.dart';
@@ -28,6 +29,8 @@ class StudySessionController extends ChangeNotifier {
   StudyCard? _current;
   ReviewReceipt? _lastReview;
   Map<ReviewRating, Duration> _previewIntervals = const {};
+  Map<ReviewRating, String> _previewLabels = const {};
+  DateTime? _previewCalendarDay;
   String? _error;
 
   bool get busy => _busy;
@@ -39,6 +42,7 @@ class StudySessionController extends ChangeNotifier {
   int get completedReviews => _completedReviews;
   int get presentationRevision => _presentationRevision;
   Map<ReviewRating, Duration> get previewIntervals => _previewIntervals;
+  Map<ReviewRating, String> get previewLabels => _previewLabels;
   String? get error => _error;
 
   Future<void> start() async {
@@ -67,16 +71,50 @@ class StudySessionController extends ChangeNotifier {
   void showAnswer() {
     if (_busy || _disposed || _current == null || _answerVisible) return;
     try {
-      _previewIntervals = repository.scheduler.previewIntervals(
-        _current!.card,
-        reviewedAtUtc: repository.nowUtc,
-      );
+      _updatePreview();
       _answerVisible = true;
       _error = null;
     } catch (error) {
       _error = _message(error, '排程预览失败，请检查卡片或系统时间。');
     }
     _notify();
+  }
+
+  void _updatePreview() {
+    final now = repository.nowUtc;
+    _previewIntervals = repository.scheduler.previewIntervals(
+      _current!.card,
+      reviewedAtUtc: now,
+    );
+    if (repository.scheduler case CalendarScheduler calendar) {
+      _previewLabels = calendar.previewLabels(now);
+      _previewCalendarDay = calendar.dayAt(now);
+    }
+  }
+
+  void pauseForEditing() => _responseClock.stop();
+
+  Future<void> refreshAfterEditing() async {
+    final current = _current;
+    if (_busy || _disposed || current == null) return;
+    _busy = true;
+    _error = null;
+    _notify();
+    try {
+      final updated = await repository.getStudyCard(current.card.id);
+      if (!_disposed) _setCurrent(updated);
+    } on StateError catch (error) {
+      if (error.message == '卡片不存在') {
+        await _loadNext();
+      } else {
+        _error = error.message;
+      }
+    } catch (_) {
+      _error = '修改后读取卡片失败，请重新载入。';
+    } finally {
+      _busy = false;
+      _notify();
+    }
   }
 
   Future<void> rate(ReviewRating rating) async {
@@ -87,10 +125,18 @@ class StudySessionController extends ChangeNotifier {
     _notify();
     var committed = false;
     try {
+      if (repository.scheduler case CalendarScheduler calendar) {
+        if (_previewCalendarDay != calendar.dayAt(repository.nowUtc)) {
+          _updatePreview();
+          _error = '已跨过午夜，复习日期已更新，请查看后再次评分。';
+          return;
+        }
+      }
       final receipt = await repository.rateCard(
         item.card,
         rating,
         elapsed: _responseClock.elapsed,
+        expectedCalendarDay: _previewCalendarDay,
       );
       committed = true;
       _lastReview = receipt;
@@ -98,6 +144,17 @@ class StudySessionController extends ChangeNotifier {
       _setCurrent(null);
       if (!_disposed) await _loadNext();
     } catch (error) {
+      if (!committed) {
+        if (repository.scheduler case CalendarScheduler calendar) {
+          if (_previewCalendarDay != calendar.dayAt(repository.nowUtc)) {
+            try {
+              _updatePreview();
+            } catch (_) {
+              /* Preserve the scoring error. */
+            }
+          }
+        }
+      }
       _error = committed
           ? '评分已保存，但下一张卡片载入失败，请重新载入。'
           : _message(error, '评分未保存，请重试。');
@@ -161,6 +218,8 @@ class StudySessionController extends ChangeNotifier {
     _current = item;
     _answerVisible = false;
     _previewIntervals = const {};
+    _previewLabels = const {};
+    _previewCalendarDay = null;
     _responseClock.reset();
     if (item == null) {
       _responseClock.stop();

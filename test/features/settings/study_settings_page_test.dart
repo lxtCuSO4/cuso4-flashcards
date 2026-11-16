@@ -178,6 +178,38 @@ void main() {
   });
 
   testWidgets(
+    'custom strategy validates ordered days and persists separately from FSRS',
+    (tester) async {
+      await open(tester);
+      final strategy = find.byType(DropdownButtonFormField<String>);
+      await tester.ensureVisible(strategy);
+      await tester.tap(strategy);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('自定义自然日').last);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextFormField>(field('重来间隔')).controller!.text,
+        '10',
+      );
+      await change(tester, '良好天数', '1');
+      await save(tester);
+      expect(repository.saves, 0);
+      expect(find.text('天数须大于前一档'), findsWidgets);
+      await change(tester, '良好天数', '4');
+      await save(tester);
+      final settings = (await tester.runAsync(repository.load))!;
+      expect(settings.schedulingMode, 'calendar');
+      expect(settings.againMinutes, 10);
+      expect(settings.hardDays, 1);
+      expect(settings.goodDays, 4);
+      expect(settings.easyDays, 7);
+      expect(settings.desiredRetentionPercent, 90);
+      expect(tester.takeException(), isNull);
+      await close(tester);
+    },
+  );
+
+  testWidgets(
     'target phone, small phone, large text, dark, landscape and keyboard fit',
     (tester) async {
       await open(tester);

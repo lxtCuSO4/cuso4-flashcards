@@ -89,10 +89,11 @@ class _StudyPageState extends ConsumerState<StudyPage>
     final note = _session.current?.note;
     if (_locked || note == null) return;
     setState(() => _editing = true);
+    _session.pauseForEditing();
     unawaited(_audio.stop());
     try {
       await context.push('/decks/${note.deckId}/edit/${note.id}');
-      if (mounted) await _session.start();
+      if (mounted) await _session.refreshAfterEditing();
     } finally {
       if (mounted) {
         setState(() => _editing = false);
@@ -394,6 +395,7 @@ class _StudyPageState extends ConsumerState<StudyPage>
                                     const SizedBox(height: 12),
                                     ReviewRatingBar(
                                       intervals: _session.previewIntervals,
+                                      labels: _session.previewLabels,
                                       onRate: _locked ? null : _rate,
                                     ),
                                   ],

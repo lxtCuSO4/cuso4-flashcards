@@ -20,6 +20,9 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
   final _fresh = TextEditingController();
   final _reviews = TextEditingController();
   final _retention = TextEditingController();
+  final _rules = List.generate(4, (_) => TextEditingController());
+  final _ruleFocus = List.generate(4, (_) => FocusNode());
+  String _mode = 'fsrs';
   final _freshFocus = FocusNode();
   final _reviewFocus = FocusNode();
   final _retentionFocus = FocusNode();
@@ -51,6 +54,8 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
       _fresh.text = '${settings.dailyNewLimit}';
       _reviews.text = '${settings.dailyReviewLimit}';
       _retention.text = '${settings.desiredRetentionPercent}';
+      _mode = settings.schedulingMode;
+      _fillRules(settings);
     } catch (error) {
       if (!mounted) return;
       _loadError = error is StateError ? error.message : '学习设置读取失败，请重试。';
@@ -64,7 +69,14 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
     _dirty =
         _fresh.text.trim() != '${original.dailyNewLimit}' ||
         _reviews.text.trim() != '${original.dailyReviewLimit}' ||
-        _retention.text.trim() != '${original.desiredRetentionPercent}';
+        _retention.text.trim() != '${original.desiredRetentionPercent}' ||
+        _mode != original.schedulingMode ||
+        [
+          original.againMinutes,
+          original.hardDays,
+          original.goodDays,
+          original.easyDays,
+        ].indexed.any((entry) => _rules[entry.$1].text.trim() != '${entry.$2}');
     _saved = false;
     _saveError = null;
   });
@@ -76,6 +88,26 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
         : null;
   }
 
+  void _fillRules(StudySettings settings) {
+    final values = [
+      settings.againMinutes,
+      settings.hardDays,
+      settings.goodDays,
+      settings.easyDays,
+    ];
+    for (var i = 0; i < values.length; i++) {
+      _rules[i].text = '${values[i]}';
+    }
+  }
+
+  String? _ruleError(int index, String? text) {
+    final error = _range(text, 1, index == 0 ? 1440 : 3650);
+    if (error != null || index < 2) return error;
+    final prior = int.tryParse(_rules[index - 1].text.trim());
+    if (prior != null && int.parse(text!.trim()) <= prior) return '天数须大于前一档';
+    return null;
+  }
+
   Future<void> _save() async {
     if (_saving || _loading) return;
     if (!_form.currentState!.validate()) {
@@ -83,6 +115,16 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
         _freshFocus.requestFocus();
       } else if (_range(_reviews.text, 0, 99999) != null) {
         _reviewFocus.requestFocus();
+      } else if (_mode == 'calendar' &&
+          List.generate(
+            4,
+            (i) => i,
+          ).any((i) => _ruleError(i, _rules[i].text) != null)) {
+        final i = List.generate(
+          4,
+          (i) => i,
+        ).firstWhere((i) => _ruleError(i, _rules[i].text) != null);
+        _ruleFocus[i].requestFocus();
       } else {
         _advanced.expand();
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -95,6 +137,19 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
       dailyNewLimit: int.parse(_fresh.text.trim()),
       dailyReviewLimit: int.parse(_reviews.text.trim()),
       desiredRetentionPercent: int.parse(_retention.text.trim()),
+      schedulingMode: _mode,
+      againMinutes: _mode == 'calendar'
+          ? int.parse(_rules[0].text.trim())
+          : _original!.againMinutes,
+      hardDays: _mode == 'calendar'
+          ? int.parse(_rules[1].text.trim())
+          : _original!.hardDays,
+      goodDays: _mode == 'calendar'
+          ? int.parse(_rules[2].text.trim())
+          : _original!.goodDays,
+      easyDays: _mode == 'calendar'
+          ? int.parse(_rules[3].text.trim())
+          : _original!.easyDays,
     );
     FocusScope.of(context).unfocus();
     setState(() {
@@ -110,6 +165,7 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
         _fresh.text = '${settings.dailyNewLimit}';
         _reviews.text = '${settings.dailyReviewLimit}';
         _retention.text = '${settings.desiredRetentionPercent}';
+        _fillRules(settings);
         _dirty = false;
         _saved = true;
       });
@@ -154,6 +210,12 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
     _fresh.dispose();
     _reviews.dispose();
     _retention.dispose();
+    for (final controller in _rules) {
+      controller.dispose();
+    }
+    for (final focus in _ruleFocus) {
+      focus.dispose();
+    }
     _freshFocus.dispose();
     _reviewFocus.dispose();
     _retentionFocus.dispose();
@@ -169,6 +231,7 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
     required int min,
     required int max,
     String suffix = '张',
+    String? Function(String?)? validate,
   }) => TextFormField(
     controller: controller,
     focusNode: focus,
@@ -182,7 +245,7 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
       errorMaxLines: 3,
       suffixText: suffix,
     ),
-    validator: (value) => _range(value, min, max),
+    validator: validate ?? (value) => _range(value, min, max),
     autovalidateMode: AutovalidateMode.onUserInteraction,
     onChanged: _changed,
   );
@@ -252,6 +315,71 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
                   ),
                   const SizedBox(height: 16),
                   Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            '复习策略',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                          const SizedBox(height: 16),
+                          DropdownButtonFormField<String>(
+                            initialValue: _mode,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: '排程方式',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'fsrs',
+                                child: Text('FSRS 智能排程'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'calendar',
+                                child: Text('自定义自然日'),
+                              ),
+                            ],
+                            onChanged: _saving
+                                ? null
+                                : (value) {
+                                    if (value == null) return;
+                                    _mode = value;
+                                    _changed('');
+                                  },
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _mode == 'fsrs' ? '根据记忆状态调整间隔，保留原有学习和重学步骤。' : '重来按分钟计时；后三档按学习日的日期计算，在目标日期零点到期。固定规则不预测记忆保持率。',
+                          ),
+                          if (_mode == 'calendar') ...[
+                            const SizedBox(height: 20),
+                            for (var i = 0; i < 4; i++) ...[
+                              _field(
+                                controller: _rules[i],
+                                focus: _ruleFocus[i],
+                                label: ['重来间隔', '困难天数', '良好天数', '简单天数'][i],
+                                help: i == 0
+                                    ? '默认 10 分钟，从本次评分时刻起计。'
+                                    : '按自然日；后三档天数须依次递增。',
+                                min: 1,
+                                max: i == 0 ? 1440 : 3650,
+                                suffix: i == 0 ? '分钟' : '天',
+                                validate: (value) => _ruleError(i, value),
+                              ),
+                              const SizedBox(height: 20),
+                            ],
+                            const Text(
+                              '例如晚上评分，困难 1 天表示明天零点到期，可以次日复习。此处沿用首次学习时记录的时区，与每日额度一致。',
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
                     child: ExpansionTile(
                       controller: _advanced,
                       title: const Text('FSRS 进阶设置'),
@@ -275,7 +403,7 @@ class _StudySettingsPageState extends ConsumerState<StudySettingsPage> {
                   ),
                   const SizedBox(height: 20),
                   const Text(
-                    '保存后，下次进入学习生效。不会重置进度，也不会立即改动已有卡片的到期日；新的保持率在之后的评分中使用。',
+                    '保存后，下次进入学习生效。不会重置进度，也不会立即改动已有卡片的到期日；新策略仅用于之后的评分。',
                   ),
                   const SizedBox(height: 24),
                   if (_saveError != null || _saved) ...[

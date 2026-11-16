@@ -17,6 +17,7 @@ import '../../features/favorites/presentation/favorites_page.dart';
 import '../../features/favorites/presentation/favorite_preview_page.dart';
 import '../../features/backup/presentation/backup_page.dart';
 import '../../features/practice/presentation/practice_page.dart';
+import '../../features/recitation/presentation/recitation_page.dart';
 import '../../features/search/presentation/search_page.dart';
 import '../../features/reminders/reminder_page.dart';
 import '../../features/storage/storage_page.dart';
@@ -24,6 +25,20 @@ import '../../features/storage/storage_page.dart';
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
     routes: [
+      GoRoute(
+        path: '/recitation/:deckId',
+        builder: (_, state) =>
+            RecitationPage(deckId: int.parse(state.pathParameters['deckId']!)),
+      ),
+      // Editing from a root-level study page must not push a second instance
+      // of the stateful tab shell (which reuses its navigator/page keys).
+      GoRoute(
+        path: '/decks/:deckId/edit/:noteId',
+        builder: (_, state) => NoteEditorPage(
+          deckId: int.parse(state.pathParameters['deckId']!),
+          noteId: int.parse(state.pathParameters['noteId']!),
+        ),
+      ),
       GoRoute(
         path: '/feedback',
         builder: (_, _) => const ProblemFeedbackPage(),
@@ -101,13 +116,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         path: 'new',
                         builder: (_, state) => NoteEditorPage(
                           deckId: int.parse(state.pathParameters['deckId']!),
-                        ),
-                      ),
-                      GoRoute(
-                        path: 'edit/:noteId',
-                        builder: (_, state) => NoteEditorPage(
-                          deckId: int.parse(state.pathParameters['deckId']!),
-                          noteId: int.parse(state.pathParameters['noteId']!),
                         ),
                       ),
                     ],

@@ -31,4 +31,12 @@ class ClozeParser {
         final separator = body.indexOf('::');
         return separator < 0 ? body : body.substring(0, separator);
       });
+
+  String renderReading(String source) =>
+      source.replaceAllMapped(_deletion, (match) {
+        final body = match.group(2)!;
+        final separator = body.indexOf('::');
+        final answer = separator < 0 ? body : body.substring(0, separator);
+        return '<strong><u>$answer</u></strong>';
+      });
 }

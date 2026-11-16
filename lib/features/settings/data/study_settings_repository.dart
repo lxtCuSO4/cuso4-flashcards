@@ -24,7 +24,7 @@ class StudySettingsRepository {
     }
   }
 
-  /// One row replaces all three settings atomically. Existing card schedules
+  /// One row replaces all settings atomically. Existing card schedules
   /// and review history are intentionally untouched.
   Future<void> save(StudySettings settings) async {
     await db

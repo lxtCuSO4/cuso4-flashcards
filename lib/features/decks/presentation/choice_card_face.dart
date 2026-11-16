@@ -20,6 +20,7 @@ class ChoiceCardFace extends StatefulWidget {
     required this.answerVisible,
     required this.onReveal,
     this.enabled = true,
+    this.readingOnly = false,
     this.draftImages = const {},
   });
   final ChoiceQuestion question;
@@ -28,6 +29,7 @@ class ChoiceCardFace extends StatefulWidget {
   final bool answerVisible;
   final VoidCallback onReveal;
   final bool enabled;
+  final bool readingOnly;
   final Map<String, Uint8List> draftImages;
 
   @override
@@ -99,11 +101,12 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
         const SizedBox(height: 12),
         _content(question.prompt),
         const SizedBox(height: 16),
-        Text(
-          question.type == NoteType.singleChoice
-              ? '选择一个答案，再提交。'
-              : '可选择多个答案；少选、多选或错选均判错。',
-        ),
+        if (!widget.readingOnly)
+          Text(
+            question.type == NoteType.singleChoice
+                ? '选择一个答案，再提交。'
+                : '可选择多个答案；少选、多选或错选均判错。',
+          ),
         const SizedBox(height: 12),
         for (var position = 0; position < _order.length; position++) ...[
           Builder(
@@ -115,6 +118,8 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
               final revealed = widget.answerVisible;
               final status = !revealed
                   ? null
+                  : widget.readingOnly
+                  ? (isAnswer ? '正确选项' : null)
                   : isAnswer
                   ? (selected ? '正确选项 · 已选' : '正确选项 · 未选')
                   : selected
@@ -124,7 +129,7 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
                   ? scheme.error
                   : scheme.primary;
               return Semantics(
-                checked: selected,
+                checked: widget.readingOnly ? isAnswer : selected,
                 inMutuallyExclusiveGroup:
                     question.type == NoteType.singleChoice,
                 enabled: widget.enabled && !revealed,
@@ -156,10 +161,12 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
                             ExcludeSemantics(
                               child: Icon(
                                 question.type == NoteType.singleChoice
-                                    ? (selected
+                                    ? ((selected ||
+                                              widget.readingOnly && isAnswer)
                                           ? Icons.radio_button_checked
                                           : Icons.radio_button_off)
-                                    : (selected
+                                    : ((selected ||
+                                              widget.readingOnly && isAnswer)
                                           ? Icons.check_box
                                           : Icons.check_box_outline_blank),
                                 color: tint,
@@ -224,19 +231,20 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
           ),
         ] else ...[
           const Divider(height: 32),
-          Semantics(
-            liveRegion: true,
-            child: Text(
-              !_attempted
-                  ? '未作答'
-                  : correct
-                  ? '回答正确'
-                  : '回答错误',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: _attempted && !correct ? scheme.error : scheme.primary,
+          if (!widget.readingOnly)
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                !_attempted
+                    ? '未作答'
+                    : correct
+                    ? '回答正确'
+                    : '回答错误',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: _attempted && !correct ? scheme.error : scheme.primary,
+                ),
               ),
             ),
-          ),
           const SizedBox(height: 8),
           if (_attempted) Text('你的答案：${_letters(_selected)}'),
           Text('正确答案：${_letters(question.correctIndexes)}'),

@@ -10,6 +10,7 @@ import '../domain/scheduler.dart';
 import '../domain/study_card.dart';
 import '../domain/study_availability.dart';
 import 'fsrs_scheduler.dart';
+import 'calendar_scheduler.dart';
 
 class StudyRepository {
   StudyRepository(
@@ -37,7 +38,12 @@ class StudyRepository {
   /// Keep a session's preview, queue and rating on one immutable configuration.
   StudyRepository withSettings(StudySettings settings) => StudyRepository(
     db,
-    scheduler: FsrsScheduler(desiredRetention: settings.desiredRetention),
+    scheduler: settings.schedulingMode == 'calendar'
+        ? CalendarScheduler(
+            settings,
+            offsetMinutes: _timezoneOffset().inMinutes,
+          )
+        : FsrsScheduler(desiredRetention: settings.desiredRetention),
     clock: _clock,
     timezoneOffset: _timezoneOffset,
     dailyNewLimit: settings.dailyNewLimit,
@@ -198,6 +204,7 @@ class StudyRepository {
     Flashcard expected,
     ReviewRating rating, {
     Duration elapsed = Duration.zero,
+    DateTime? expectedCalendarDay,
   }) => db.transaction(() async {
     if (elapsed.isNegative) throw ArgumentError('学习耗时不能为负数');
     final current = await getCard(expected.id);
@@ -208,6 +215,12 @@ class StudyRepository {
       db.notes,
     )..where((n) => n.id.equals(current.noteId))).getSingle();
     final day = await _studyDay(now);
+    if (scheduler case CalendarScheduler calendar) {
+      if (expectedCalendarDay != null &&
+          expectedCalendarDay != calendar.dayAt(now)) {
+        throw StateError('已跨过午夜，复习日期已更新，请查看后再次评分。');
+      }
+    }
     final used = await _dailyUsage(note.deckId, day);
     if (current.state == CardState.newCard && used.newCards >= dailyNewLimit) {
       throw StateError('这个牌组今日的新卡额度已用完');
@@ -232,6 +245,13 @@ class StudyRepository {
             afterStateJson: jsonEncode({
               ...after.toJson(),
               'deckId': note.deckId,
+              'schedulingMode': scheduler is CalendarScheduler
+                  ? 'calendar'
+                  : 'fsrs',
+              if (scheduler case CalendarScheduler calendar) ...{
+                'schedulingSettings': calendar.settings.toJson(),
+                'offsetMinutes': day.offsetMinutes,
+              },
             }),
           ),
         );
@@ -386,6 +406,9 @@ class StudyRepository {
       throw StateError('学习日设置无效');
     }
     final offset = Duration(minutes: minutes);
+    if (scheduler case CalendarScheduler calendar) {
+      calendar.offsetMinutes = minutes;
+    }
     final local = now.add(offset);
     final start = DateTime.utc(
       local.year,

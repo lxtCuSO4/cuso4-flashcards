@@ -1,6 +1,6 @@
 # Windows 本地 Android 构建
 
-在活跃工程 D:\anki\.worktrees\cuso4-app 内执行：
+在活跃工程 D:\LunarMemory\.worktrees\cuso4-app 内执行：
 
     powershell -ExecutionPolicy Bypass -File .\tool\build_android_local.ps1
 
@@ -14,7 +14,7 @@
 
 首次 release 构建可能需要补下载 release 引擎和构建依赖，后续可以追加 -Offline。启用 Dart 图标裁剪、Android R8 和资源裁剪；不删除卡片功能来缩小 APK。原多架构调试 APK 保留。
 
-该包仍使用现有 Android Debug 密钥签名，不是正式公开发布版本。单架构本地测试包保持原 versionCode，避免 ABI 编号导致旧调试包版本降级；签名与包名将在构建后校验。仅适用于 arm64-v8a 设备，其他架构需另行构建。
+该包仍使用现有 Android Debug 密钥签名，不是正式公开发布版本。单架构本地测试包使用 pubspec 对应的 versionCode，不叠加 ABI 编号；签名与包名在构建后校验。仅适用于 arm64-v8a 设备，其他架构需另行构建。
 
 ## 工程内隔离
 
@@ -41,3 +41,13 @@
 可尝试覆盖安装同包名、同签名的旧测试版。若出现安装冲突，不要先卸载有数据的应用；应保存错误提示再排查。
 
 停止构建后保留缓存，再运行相同命令可复用已完整下载的依赖。未下载完的单个依赖可能重新下载，不能保证每个文件都支持字节级断点续传。
+
+## 2026-11-16 迁移后的依赖位置
+
+根目录改名后已修复 Git 工作树关联。锁文件对应的 Dart 包现位于工程 `build/pub-cache`；运行 Flutter／Gradle 前，仅在当前 PowerShell 进程设置：
+
+```powershell
+$env:PUB_CACHE='D:/LunarMemory/.worktrees/cuso4-app/build/pub-cache'
+```
+
+不要删除此缓存或执行 `flutter clean`。若需要重建包配置，可在网络可用时使用 `pub get --enforce-lockfile`，保持锁定版本；本轮未升级依赖。

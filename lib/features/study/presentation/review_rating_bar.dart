@@ -19,8 +19,10 @@ class ReviewRatingBar extends StatelessWidget {
     super.key,
     required this.intervals,
     required this.onRate,
+    this.labels = const {},
   });
   final Map<ReviewRating, Duration> intervals;
+  final Map<ReviewRating, String> labels;
   final Future<void> Function(ReviewRating)? onRate;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -56,7 +58,7 @@ class ReviewRatingBar extends StatelessWidget {
                   key: ValueKey('rating-${rating.name}'),
                   reviewFeedback: true,
                   label:
-                      '${rating.label}\n${formatReviewInterval(intervals[rating] ?? Duration.zero)}',
+                      '${rating.label}\n${labels[rating] ?? formatReviewInterval(intervals[rating] ?? Duration.zero)}',
                   onPressed: onRate == null ? null : () => onRate!(rating),
                 ),
               ),

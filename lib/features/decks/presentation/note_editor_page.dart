@@ -66,6 +66,11 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
   }
 
   Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _loadError = null;
+      _original = null;
+    });
     try {
       final note = await ref
           .read(noteRepositoryProvider)
@@ -284,7 +289,14 @@ class _NoteEditorPageState extends ConsumerState<NoteEditorPage> {
       child: _loading
           ? const LinearProgressIndicator()
           : _loadError != null
-          ? Text(_loadError!)
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(_loadError!),
+                const SizedBox(height: 16),
+                PressableAction(label: '重试读取卡片', onPressed: _load),
+              ],
+            )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

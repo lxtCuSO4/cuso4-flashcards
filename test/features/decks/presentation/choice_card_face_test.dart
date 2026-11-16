@@ -34,6 +34,52 @@ void main() {
 
   for (final type in [NoteType.singleChoice, NoteType.multipleChoice]) {
     testWidgets(
+      '${type.name}: reading shows correct answers without attempt status',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: ChoiceCardFace(
+                  question: ChoiceQuestion(
+                    type: type,
+                    prompt: '阅读题干',
+                    options: ['选项甲', '选项乙', '选项丙'],
+                    correctIndexes: type == NoteType.singleChoice
+                        ? [1]
+                        : [0, 1],
+                    explanation: '阅读解析',
+                  ),
+                  media: media,
+                  audio: audio,
+                  answerVisible: true,
+                  enabled: false,
+                  readingOnly: true,
+                  onReveal: () => fail('Reading must not submit answers'),
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(
+          find.text(type == NoteType.singleChoice ? '正确答案：B' : '正确答案：A、B'),
+          findsOneWidget,
+        );
+        expect(find.text('阅读解析'), findsOneWidget);
+        expect(find.text('未作答'), findsNothing);
+        expect(find.text('提交答案'), findsNothing);
+        expect(find.textContaining('未选'), findsNothing);
+        expect(
+          tester
+              .widget<InkWell>(find.byKey(const ValueKey('choice-option-0')))
+              .onTap,
+          isNull,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+    testWidgets(
       '${type.name}: exact grading, locking and reset at large text',
       (tester) async {
         tester.view.physicalSize = const Size(1220, 2712);

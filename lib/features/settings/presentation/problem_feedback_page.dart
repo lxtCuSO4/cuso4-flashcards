@@ -33,7 +33,7 @@ class _ProblemFeedbackPageState extends State<ProblemFeedbackPage> {
       [_title, _details, _contact].any((c) => c.text.isNotEmpty);
   String get _subject => '[Lunar Memory · $_category] ${_title.text.trim()}';
   String get _body =>
-      '反馈类型：$_category\n标题：${_title.text.trim()}\n\n${_details.text.trim()}\n\n联系方式：${_contact.text.trim().isEmpty ? '未填写' : _contact.text.trim()}\n\n来自 Lunar Memory 1.2.0+3';
+      '反馈类型：$_category\n标题：${_title.text.trim()}\n\n${_details.text.trim()}\n\n联系方式：${_contact.text.trim().isEmpty ? '未填写' : _contact.text.trim()}\n\n来自 Lunar Memory 1.1.1+4';
 
   @override
   void dispose() {

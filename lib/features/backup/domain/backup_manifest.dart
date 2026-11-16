@@ -48,7 +48,7 @@ class BackupManifest {
     required this.createdAtUtc,
     required this.database,
     required this.media,
-    this.appVersion = '1.2.0+3',
+    this.appVersion = '1.1.1+4',
     this.formatVersion = 2,
     this.databaseSchemaVersion = 2,
   });

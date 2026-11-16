@@ -1,6 +1,8 @@
-# Lunar Memory 1.2.0 开发预览版
+# Lunar Memory 1.1.1 开发预览版
 
 选择题独立练习；错题答对自动移出。
+
+用户指定公开版本为 `v1.1.1`，应用版本 `1.1.1+4`。内部版本码增加到 4，支持从先前本地生成的 `1.2.0+3` 试构建覆盖升级；功能和数据结构相同。
 
 ## 功能
 
@@ -12,14 +14,15 @@
 ## 验收
 
 - 主回归：75 项通过，覆盖练习、选择题提交、收藏、备份、排程和数据库；兼容检查：23 项通过（含重复的备份检查），覆盖旧备份、导入中断恢复、学习编辑和背卡。
+- 按 v1.1.1 改版后，补查备份版本信息和问题反馈：17 项通过；改动 Dart 文件静态检查通过。
 - Dart analyze：No issues found。Git diff --check：通过。
-- 离线 ARM64 Release 构建成功，用时 1 分 35 秒；未新增或下载依赖。
-- `build/releases/lunar-memory-1.2.0-arm64.apk`：22,982,201 字节，约 23.0 MB。
-- APK SHA256：`C8915B707577B788A23AEEC4D7660A2B7316F775B311139935066F3B57D27E89`。
-- 包名 `com.cuso4.flashcards`，versionName `1.2.0`，versionCode `3`，minSdk 26，targetSdk 36；仅 `arm64-v8a`。
+- 离线 ARM64 Release 构建成功，用时 1 分 34 秒；未新增或下载依赖。
+- `build/releases/lunar-memory-1.1.1-arm64.apk`：22,982,197 字节，约 23.0 MB。
+- APK SHA256：`B241454D1865F43836A848255D28225499346D564919BE7FAAE705A5E023066D`。
+- 包名 `com.cuso4.flashcards`，versionName `1.1.1`，versionCode `4`，minSdk 26，targetSdk 36；仅 `arm64-v8a`。
 - APK 签名校验通过，证书 SHA256 `7729944fb7a11b56489b12f9d8b7ba71e9fe53ef873200445a92892b01a4ea2a`，与原安装包一致。
-- 指南副本 `build/releases/Lunar-Memory-1.2.0-User-Guide.md`：16,302 字节；SHA256 `834F2F9B9C89EC857ACCD5C5660293C3EF3BBAC8FF4E8C23713EA9AF585B0FF5`。
+- 指南副本 `build/releases/Lunar-Memory-1.1.1-User-Guide.md`：16,311 字节；SHA256 `911A60560ECBD9927EE5CEE021336F3AA5365B1AD3FCAEA113FB684CF5A4146C`。
 - 旧版 1.1.0 APK 保持原哈希 `1A04E4ADE52CEFD82EFE6CB8EAD5BC0310A0F6F282F900E0964EC6DE7BB0DF20`。
-- 本轮未推送 GitHub，PDF 制卡未实施，两个原有未跟踪计划文档保持不动。
+- 本轮按用户授权发布至 GitHub，标签为 `v1.1.1`。PDF 制卡未实施，两个原有未跟踪计划文档不上传。
 
 实际手机覆盖安装、触觉强度及显示观感仍需设备验收。

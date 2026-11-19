@@ -27,7 +27,7 @@ void main() {
   });
   tearDown(() async => db.close());
 
-  Future<void> open(WidgetTester tester) async {
+  Future<void> open(WidgetTester tester, {bool failCounts = false}) async {
     addTearDown(() async {
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
@@ -38,7 +38,13 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [databaseProvider.overrideWithValue(db)],
+        overrides: [
+          databaseProvider.overrideWithValue(db),
+          if (failCounts)
+            cardCountsProvider.overrideWith(
+              (ref) => Stream.error(StateError('count failure')),
+            ),
+        ],
         child: const Cuso4App(),
       ),
     );
@@ -54,6 +60,66 @@ void main() {
     expect(find.text('第一节'), findsNothing);
     expect(find.text('关系模型'), findsNothing);
     expect(find.byTooltip('展开操作系统'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+  });
+
+  Finder rowText(int deckId, String text) => find.descendant(
+    of: find.byKey(ValueKey('deck-row-$deckId')),
+    matching: find.text(text),
+  );
+
+  testWidgets(
+    'collapsed parents count cards and chapters at every nested level',
+    (tester) async {
+      await open(tester);
+      expect(rowText(root, '共 1 张卡片 · 含 3 个子章节'), findsOneWidget);
+      expect(rowText(other, '共 0 张卡片 · 含 1 个子章节'), findsOneWidget);
+      await tester.tap(find.byTooltip('展开操作系统'));
+      await tester.pumpAndSettle();
+      expect(rowText(chapter, '共 1 张卡片 · 含 1 个子章节'), findsOneWidget);
+      expect(find.text('0 张卡片'), findsOneWidget); // Empty leaf chapter.
+      await tester.tap(find.byTooltip('展开第一章'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 张卡片'), findsOneWidget); // Nonempty leaf section.
+      expect(rowText(root, '共 1 张卡片 · 含 3 个子章节'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'totals refresh after adding cards, moving chapters and deleting',
+    (tester) async {
+      await open(tester);
+      late int directNote;
+      directNote = await NoteRepository(db)
+          .createBasicNote(deckId: root, front: '直属卡片');
+      await NoteRepository(db)
+          .createClozeNote(deckId: chapter, text: '{{c1::进程}}与{{c2::线程}}');
+      await tester.pumpAndSettle();
+      expect(rowText(root, '共 4 张卡片 · 含 3 个子章节'), findsOneWidget);
+      await DeckRepository(db).moveDeck(chapter, other);
+      await tester.pumpAndSettle();
+      expect(rowText(root, '共 1 张卡片 · 含 1 个子章节'), findsOneWidget);
+      expect(rowText(other, '共 3 张卡片 · 含 3 个子章节'), findsOneWidget);
+      await DeckRepository(db).deleteDeck(chapter);
+      await tester.pumpAndSettle();
+      expect(rowText(other, '共 0 张卡片 · 含 1 个子章节'), findsOneWidget);
+      await NoteRepository(db).deleteNote(directNote);
+      await tester.pumpAndSettle();
+      expect(rowText(root, '共 0 张卡片 · 含 1 个子章节'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('failed counts show unavailable instead of zero', (tester) async {
+    await open(tester, failCounts: true);
+    expect(find.text('卡片数量暂不可用'), findsNWidgets(2));
+    expect(find.text('重新统计卡片'), findsOneWidget);
+    expect(find.text('0 张卡片'), findsNothing);
     await tester.pumpWidget(const SizedBox());
     await tester.pumpAndSettle();
   });

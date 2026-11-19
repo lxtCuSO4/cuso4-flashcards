@@ -129,15 +129,28 @@ final cardCountsProvider = StreamProvider((ref) {
   final db = ref.watch(databaseProvider);
   return db
       .customSelect(
-        '''SELECT n.deck_id AS deck_id, COUNT(c.id) AS total
-    FROM notes n JOIN cards c ON c.note_id = n.id GROUP BY n.deck_id''',
-        readsFrom: {db.notes, db.cards},
+        '''WITH RECURSIVE subtree(root_id, deck_id) AS (
+      SELECT id, id FROM decks
+      UNION
+      SELECT s.root_id, d.id FROM decks d JOIN subtree s ON d.parent_id = s.deck_id
+    ), direct_counts AS (
+      SELECT n.deck_id, COUNT(c.id) AS total
+      FROM notes n JOIN cards c ON c.note_id = n.id GROUP BY n.deck_id
+    )
+    SELECT s.root_id AS deck_id, COALESCE(SUM(c.total), 0) AS total,
+      COUNT(*) - 1 AS chapters
+    FROM subtree s LEFT JOIN direct_counts c ON c.deck_id = s.deck_id
+    GROUP BY s.root_id''',
+        readsFrom: {db.decks, db.notes, db.cards},
       )
       .watch()
       .map(
         (rows) => {
           for (final row in rows)
-            row.read<int>('deck_id'): row.read<int>('total'),
+            row.read<int>('deck_id'): (
+              cards: row.read<int>('total'),
+              chapters: row.read<int>('chapters'),
+            ),
         },
       );
 });

@@ -94,7 +94,7 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
   @override
   Widget build(BuildContext context) {
     final decks = ref.watch(decksProvider);
-    final counts = ref.watch(cardCountsProvider).value ?? {};
+    final counts = ref.watch(cardCountsProvider);
     final settings = ref.watch(settingsProvider);
     bool isExpanded(int id) => settings.value?['deckExpanded.$id'] == 'true';
     return PageFrame(
@@ -142,6 +142,12 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
                   child: const Text('重试读取章节状态'),
                 ),
               ],
+            ),
+          if (counts.hasError)
+            TextButton.icon(
+              onPressed: () => ref.invalidate(cardCountsProvider),
+              icon: const Icon(Icons.refresh),
+              label: const Text('重新统计卡片'),
             ),
           decks.when(
             data: (items) {
@@ -260,7 +266,19 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            subtitle: Text('${counts[entry.deck.id] ?? 0} 张卡片'),
+                            subtitle: counts.when(
+                              loading: () => const Text('正在统计卡片…'),
+                              error: (_, _) => const Text('卡片数量暂不可用'),
+                              data: (values) {
+                                final count = values[entry.deck.id];
+                                if (count == null) return const Text('正在统计卡片…');
+                                return Text(
+                                  count.chapters > 0
+                                      ? '共 ${count.cards} 张卡片 · 含 ${count.chapters} 个子章节'
+                                      : '${count.cards} 张卡片',
+                                );
+                              },
+                            ),
                             onTap: () =>
                                 context.push('/decks/${entry.deck.id}'),
                             trailing: PopupMenuButton<String>(

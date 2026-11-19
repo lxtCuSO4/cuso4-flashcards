@@ -19,6 +19,8 @@ import '../data/practice_session_repository.dart';
 import 'practice_card_face.dart';
 import 'choice_explanation_page.dart';
 import 'choice_practice_scaffold.dart';
+import 'practice_answer_sheet.dart';
+import '../../../app/theme/lunar_theme.dart';
 
 class PracticePage extends ConsumerStatefulWidget {
   const PracticePage({
@@ -45,6 +47,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
   late final PracticeSessionRepository _sessions;
   PracticeSession? _session;
   PracticeSession? _resume;
+  final _answerClock = Stopwatch();
+  int _elapsedBase = 0;
+  int get _elapsed => _elapsedBase + _answerClock.elapsedMilliseconds;
   late bool _includeChildren;
   bool _busy = true;
   bool _answerVisible = false;
@@ -84,11 +89,20 @@ class _PracticePageState extends ConsumerState<PracticePage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) unawaited(_audio.stop());
+    if (state != AppLifecycleState.resumed) {
+      unawaited(_audio.stop());
+      _pauseClock();
+    } else if (!_busy &&
+        _session?.isChoice == true &&
+        !_answerVisible &&
+        ModalRoute.of(context)?.isCurrent == true) {
+      _answerClock.start();
+    }
   }
 
   @override
   void dispose() {
+    _pauseClock();
     WidgetsBinding.instance.removeObserver(this);
     _audio.dispose();
     _scroll.dispose();
@@ -219,6 +233,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
   }
 
   Future<void> _load() async {
+    _answerClock.stop();
     setState(() {
       _busy = true;
       _card = null;
@@ -268,6 +283,9 @@ class _PracticePageState extends ConsumerState<PracticePage>
           _card = item;
           _busy = false;
         });
+        _elapsedBase = session.elapsedMs;
+        _answerClock.reset();
+        if (choice != null && !session.answerVisible) _answerClock.start();
         if (session.explanation && session.attempt != null) {
           unawaited(_openExplanation(session.attempt!));
         }
@@ -314,7 +332,11 @@ class _PracticePageState extends ConsumerState<PracticePage>
     if (_busy || _session == null) throw StateError('请等待当前操作完成。');
     setState(() => _busy = true);
     try {
-      final saved = await _sessions.saveAttempt(_session!, attempt);
+      final saved = await _sessions.saveAttempt(
+        _session!,
+        attempt,
+        elapsedMs: _elapsed,
+      );
       if (mounted) _adopt(saved);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -339,10 +361,13 @@ class _PracticePageState extends ConsumerState<PracticePage>
       throw StateError('请等待当前操作完成。');
     }
     setState(() => _busy = true);
+    _answerClock.stop();
     try {
       final saved = await _sessions.submit(
         _session!,
         selected,
+        elapsedMs: _elapsed,
+        sourceDeckName: _card!.deckName,
         question: ChoiceQuestion.fromFields(
           _card!.note.type,
           _card!.note.fields,
@@ -360,6 +385,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
       return;
     }
     _explanationOpen = true;
+    _answerClock.stop();
     setState(() => _busy = true);
     try {
       await _audio.stop();
@@ -370,6 +396,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
         _adopt(saved);
         _busy = false;
       });
+      int? jumpTarget;
       final advance = await Navigator.of(context).push<bool>(
         MaterialPageRoute(
           settings: const RouteSettings(name: 'choice-explanation'),
@@ -383,6 +410,10 @@ class _PracticePageState extends ConsumerState<PracticePage>
             deckName: item.deckName,
             position: _index + 1,
             total: _round!.cardIds.length,
+            onAnswerSheet: () async {
+              jumpTarget = await _chooseQuestion();
+              return jumpTarget;
+            },
           ),
         ),
       );
@@ -395,7 +426,11 @@ class _PracticePageState extends ConsumerState<PracticePage>
       _adopt(await _sessions.explanation(_session!, false));
       if (!mounted) return;
       setState(() => _busy = false);
-      if (advance == true) await _next();
+      if (jumpTarget != null) {
+        await _jump(jumpTarget!);
+      } else if (advance == true) {
+        await _next();
+      }
     } catch (error) {
       if (mounted) showActionError(context, error);
     } finally {
@@ -431,6 +466,11 @@ class _PracticePageState extends ConsumerState<PracticePage>
     await _audio.stop();
     if (!mounted) return;
     try {
+      _answerClock.stop();
+      if (_session != null && !_answerVisible) {
+        await _sessions.saveElapsed(_session!, _elapsed);
+      }
+      if (!mounted) return;
       await context.push('/decks/${item.note.deckId}/edit/${item.note.id}');
     } finally {
       if (mounted) await _load();
@@ -438,6 +478,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
   }
 
   void _configure() {
+    _pauseClock();
     unawaited(_audio.stop());
     setState(() {
       _session = null;
@@ -447,6 +488,88 @@ class _PracticePageState extends ConsumerState<PracticePage>
     });
     _top();
     unawaited(_prepareEntry(preferences: false));
+  }
+
+  void _pauseClock() {
+    _answerClock.stop();
+    final session = _session;
+    if (session != null &&
+        session.isChoice &&
+        !session.answerVisible &&
+        !session.completed) {
+      unawaited(_sessions.saveElapsed(session, _elapsed).catchError((_) {}));
+    }
+  }
+
+  Future<int?> _chooseQuestion() async {
+    if (_busy || _session == null) return null;
+    unawaited(FeedbackScope.of(context).tap());
+    _answerClock.stop();
+    setState(() => _busy = true);
+    try {
+      if (!_answerVisible && !_completed) {
+        await _sessions.saveElapsed(_session!, _elapsed);
+      }
+      if (!mounted) return null;
+      // The modal blocks input itself; avoid an endless loading animation on
+      // the completed-round page while the answer sheet is open.
+      setState(() => _busy = false);
+      return await showModalBottomSheet<int>(
+        context: context,
+        backgroundColor: LunarPalette.of(context).paper,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => LunarSurface(
+          child: PracticeAnswerSheet(session: _session!, repository: _sessions),
+        ),
+      );
+    } catch (error) {
+      if (mounted) showActionError(context, error);
+      return null;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _answerSheet() async {
+    final target = await _chooseQuestion();
+    if (!mounted) return;
+    if (target != null) {
+      await _jump(target);
+    } else if (!_answerVisible && _session?.isChoice == true) {
+      _answerClock.start();
+    }
+  }
+
+  Future<void> _jump(int target) async {
+    if (_busy || _session == null) return;
+    _answerClock.stop();
+    setState(() => _busy = true);
+    try {
+      if (!_answerVisible && !_completed) {
+        await _sessions.saveElapsed(_session!, _elapsed);
+      }
+      _adopt(await _sessions.jump(_session!, target));
+      if (mounted) await _load();
+    } catch (error) {
+      if (mounted) {
+        setState(() => _busy = false);
+        showActionError(context, error);
+      }
+    }
+  }
+
+  Future<void> _showSummary() async {
+    if (_busy || _session == null) return;
+    setState(() => _busy = true);
+    try {
+      _adopt(await _sessions.showSummary(_session!));
+      if (mounted) setState(() => _card = null);
+    } catch (error) {
+      if (mounted) showActionError(context, error);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -480,6 +603,12 @@ class _PracticePageState extends ConsumerState<PracticePage>
           onEdit: _edit,
           onSkip: () => _next(skip: true),
           onConfigure: _configure,
+          onAnswerSheet: () => unawaited(_answerSheet()),
+          onPrevious: _index > 0 ? () => unawaited(_jump(_index - 1)) : null,
+          onSummary: _session!.roundFinished
+              ? () => unawaited(_showSummary())
+              : null,
+          notice: _session!.legacyReview ? '旧版未保存本题答案，仅供回看；新开一轮可重新作答' : null,
           initialAttempt: _session?.attempt,
           onAttemptChanged: _recordAttempt,
         ),
@@ -498,6 +627,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
     return PopScope(
       canPop: !_busy,
       child: PageFrame(
+        exterior: round == null || _completed,
         title: _title,
         header: TouhouTag(
           widget.favoritesOnly ? TouhouPlace.bookmarks : TouhouPlace.bamboo,
@@ -505,6 +635,12 @@ class _PracticePageState extends ConsumerState<PracticePage>
         subtitle: '独立练习，不参与记忆排程；选择题答错记入错题，答对自动移出',
         scrollController: _scroll,
         actions: [
+          if (round != null)
+            IconButton(
+              tooltip: '本轮答题卡',
+              icon: const Icon(Icons.grid_view_outlined),
+              onPressed: _busy ? null : () => unawaited(_answerSheet()),
+            ),
           if (round != null && !_completed)
             IconButton(
               tooltip: '切换练习方式',
@@ -595,7 +731,13 @@ class _PracticePageState extends ConsumerState<PracticePage>
               if (_correct + _incorrect + _unanswered > 0)
                 Text('答对 $_correct 题 · 答错 $_incorrect 题 · 未作答 $_unanswered 题'),
               const SizedBox(height: 16),
-              const Text('不改变记忆进度和学习统计。选择题答错加入错题列表，答对自动移出；收藏保持独立。'),
+              const Text('不改变记忆排程。选择题提交单独计入刷题记录；答错加入错题，答对自动移出。'),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _answerSheet,
+                icon: const Icon(Icons.grid_view_outlined),
+                label: const Text('查看本轮答题卡'),
+              ),
               const SizedBox(height: 24),
               PressableAction(
                 label: '再练一轮',

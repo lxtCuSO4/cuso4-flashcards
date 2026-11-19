@@ -64,6 +64,7 @@ class _NotePreviewPageState extends State<NotePreviewPage> {
         ? widget.back
         : parser.renderAnswer(widget.front, _index ?? 1);
     return PageFrame(
+      exterior: false,
       title: '卡片预览',
       subtitle: '预览当前编辑内容，不会保存或影响学习进度。',
       child: Column(

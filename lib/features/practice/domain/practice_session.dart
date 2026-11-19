@@ -3,10 +3,14 @@ import '../../decks/domain/choice_attempt.dart';
 enum PracticeOrder { random, sequential }
 
 class PracticeRound {
-  PracticeRound({required this.deckName, required Iterable<int> cardIds})
-    : cardIds = List.unmodifiable(cardIds);
+  PracticeRound({
+    required this.deckName,
+    required Iterable<int> cardIds,
+    this.legacyBefore = 0,
+  }) : cardIds = List.unmodifiable(cardIds);
   final String deckName;
   final List<int> cardIds;
+  final int legacyBefore;
 }
 
 class PracticeScope {
@@ -48,6 +52,12 @@ class PracticeSession {
     this.answerVisible = false,
     this.explanation = false,
     this.currentCorrect = -1,
+    this.settled = false,
+    this.wasSkipped = false,
+    this.roundFinished = false,
+    this.legacyReview = false,
+    this.elapsedMs = 0,
+    this.generation = 0,
   }) : optionOrder = List.unmodifiable(order),
        selected = Set.unmodifiable(selected);
 
@@ -61,6 +71,8 @@ class PracticeSession {
   final List<int> optionOrder;
   final Set<int> selected;
   final int currentCorrect;
+  final bool settled, wasSkipped, roundFinished, legacyReview;
+  final int elapsedMs, generation;
   int? get cardId =>
       completed || index >= round.cardIds.length ? null : round.cardIds[index];
   ChoiceAttemptSnapshot? get attempt => optionOrder.isEmpty
@@ -87,6 +99,12 @@ class PracticeSession {
     bool? explanation,
     int? currentCorrect,
     bool resetCard = false,
+    bool? settled,
+    bool? wasSkipped,
+    bool? roundFinished,
+    bool? legacyReview,
+    int? elapsedMs,
+    int? generation,
   }) => PracticeSession(
     scope: scope,
     id: id,
@@ -105,10 +123,16 @@ class PracticeSession {
     answerVisible: answerVisible ?? (!resetCard && this.answerVisible),
     explanation: explanation ?? (!resetCard && this.explanation),
     currentCorrect: currentCorrect ?? (resetCard ? -1 : this.currentCorrect),
+    settled: settled ?? (!resetCard && this.settled),
+    wasSkipped: wasSkipped ?? (!resetCard && this.wasSkipped),
+    roundFinished: roundFinished ?? this.roundFinished,
+    legacyReview: legacyReview ?? (!resetCard && this.legacyReview),
+    elapsedMs: elapsedMs ?? (resetCard ? 0 : this.elapsedMs),
+    generation: generation ?? (resetCard ? 0 : this.generation),
   );
 
   Map<String, Object> get cursor => {
-    'version': 1,
+    'version': 2,
     'id': id,
     'index': index,
     'skipped': skipped,
@@ -124,6 +148,12 @@ class PracticeSession {
     'answerVisible': answerVisible,
     'explanation': explanation,
     'currentCorrect': currentCorrect,
+    'settled': settled,
+    'wasSkipped': wasSkipped,
+    'roundFinished': roundFinished,
+    'legacyReview': legacyReview,
+    'elapsedMs': elapsedMs,
+    'generation': generation,
   };
 
   factory PracticeSession.decode(
@@ -136,8 +166,8 @@ class PracticeSession {
     final completed = cursor['completed'] as bool;
     final order = (cursor['order'] as List).cast<int>();
     final selected = (cursor['selected'] as List).cast<int>();
-    if (queue['version'] != 1 ||
-        cursor['version'] != 1 ||
+    if (![1, 2].contains(queue['version']) ||
+        ![1, 2].contains(cursor['version']) ||
         queue['id'] is! String ||
         queue['id'] != cursor['id'] ||
         ids.any((v) => v <= 0) ||
@@ -160,7 +190,11 @@ class PracticeSession {
     return PracticeSession(
       scope: scope,
       id: queue['id'] as String,
-      round: PracticeRound(deckName: queue['deckName'] as String, cardIds: ids),
+      round: PracticeRound(
+        deckName: queue['deckName'] as String,
+        cardIds: ids,
+        legacyBefore: (queue['legacyBefore'] as int?) ?? 0,
+      ),
       index: index,
       completed: completed,
       skipped: cursor['skipped'] as int,
@@ -175,6 +209,34 @@ class PracticeSession {
       answerVisible: cursor['answerVisible'] as bool,
       explanation: cursor['explanation'] as bool,
       currentCorrect: cursor['currentCorrect'] as int,
+      settled: (cursor['settled'] as bool?) ?? cursor['attempted'] == true,
+      wasSkipped: (cursor['wasSkipped'] as bool?) ?? false,
+      roundFinished: (cursor['roundFinished'] as bool?) ?? completed,
+      legacyReview: (cursor['legacyReview'] as bool?) ?? false,
+      elapsedMs: (cursor['elapsedMs'] as int?) ?? 0,
+      generation: (cursor['generation'] as int?) ?? 0,
     );
   }
+}
+
+enum PracticeAnswerStatus { pending, viewed, correct, wrong, skipped, legacy }
+
+class PracticeAnswer {
+  const PracticeAnswer(
+    this.cardId,
+    this.index,
+    this.status, {
+    this.favorite = false,
+  });
+  final int cardId, index;
+  final PracticeAnswerStatus status;
+  final bool favorite;
+  String get label => switch (status) {
+    PracticeAnswerStatus.pending => '未答',
+    PracticeAnswerStatus.viewed => '已看答案',
+    PracticeAnswerStatus.correct => '答对',
+    PracticeAnswerStatus.wrong => '答错',
+    PracticeAnswerStatus.skipped => '已跳过',
+    PracticeAnswerStatus.legacy => '已练习（旧版无答案记录）',
+  };
 }

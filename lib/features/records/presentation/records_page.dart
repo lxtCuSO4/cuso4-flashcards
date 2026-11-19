@@ -12,6 +12,8 @@ import '../../../core/widgets/pressable_action.dart';
 import '../domain/daily_statistics.dart';
 import 'learning_calendar.dart';
 import 'statistics_charts.dart';
+import 'practice_records_panel.dart';
+import '../../../core/widgets/lunar_widgets.dart';
 
 typedef StatisticsQuery = ({StatisticsPeriod period, DateTime? month});
 
@@ -22,7 +24,8 @@ final statisticsProvider = StreamProvider.autoDispose.family(
 );
 
 class RecordsPage extends ConsumerStatefulWidget {
-  const RecordsPage({super.key});
+  const RecordsPage({super.key, this.initialPractice = false});
+  final bool initialPractice;
   @override
   ConsumerState<RecordsPage> createState() => _RecordsPageState();
 }
@@ -30,6 +33,7 @@ class RecordsPage extends ConsumerStatefulWidget {
 class _RecordsPageState extends ConsumerState<RecordsPage>
     with WidgetsBindingObserver {
   StatisticsPeriod _period = StatisticsPeriod.week;
+  late bool _practice = widget.initialPractice;
   DateTime? _month;
   Timer? _midnightTimer;
   DateTime? _timerDay;
@@ -39,6 +43,14 @@ class _RecordsPageState extends ConsumerState<RecordsPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didUpdateWidget(RecordsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialPractice != widget.initialPractice) {
+      _practice = widget.initialPractice;
+    }
   }
 
   @override
@@ -94,10 +106,20 @@ class _RecordsPageState extends ConsumerState<RecordsPage>
     return PageFrame(
       title: '记录',
       header: const TouhouTag(TouhouPlace.journal),
-      subtitle: '每一次回想，都在这里留下足迹。',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const LunarHeading('日有所积', subtitle: '回看每一天的积累'),
+          const SizedBox(height: 18),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('记忆学习')),
+              ButtonSegment(value: true, label: Text('选择题练习')),
+            ],
+            selected: {_practice},
+            onSelectionChanged: (value) =>
+                setState(() => _practice = value.single),
+          ),
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
@@ -129,72 +151,79 @@ class _RecordsPageState extends ConsumerState<RecordsPage>
             ],
           ),
           const SizedBox(height: 24),
-          statistics.when(
-            loading: () =>
-                const LinearProgressIndicator(semanticsLabel: '正在读取学习统计'),
-            error: (error, _) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(error is StateError ? error.message : '学习记录读取失败，请重试。'),
-                const SizedBox(height: 16),
-                PressableAction(
-                  label: '重新读取记录',
-                  onPressed: () => ref.invalidate(statisticsProvider(_query)),
-                ),
-              ],
-            ),
-            data: (snapshot) {
-              _scheduleRefresh(snapshot);
-              return Column(
+          if (_practice)
+            PracticeRecordsPanel(period: _period)
+          else
+            statistics.when(
+              loading: () =>
+                  const LinearProgressIndicator(semanticsLabel: '正在读取学习统计'),
+              error: (error, _) => Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    '${_date(snapshot.rangeStart)}–${_date(snapshot.today)}',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '所选范围学习 ${snapshot.activeDays} 天 · 当前连续 ${snapshot.streak} 天',
-                  ),
-                  const SizedBox(height: 20),
-                  StatisticsSummary(statistics: snapshot.summary),
-                  const SizedBox(height: 24),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: LearningCalendar(
-                        snapshot: snapshot,
-                        onMonthChanged: (month) =>
-                            setState(() => _month = month),
-                        onDaySelected: (date) => unawaited(_details(date)),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: StatisticsCharts(snapshot: snapshot),
-                    ),
-                  ),
+                  Text(error is StateError ? error.message : '学习记录读取失败，请重试。'),
                   const SizedBox(height: 16),
-                  Text('学习日时区：${_offset(snapshot.offsetMinutes)}，与每日额度一致。'),
-                  const SizedBox(height: 12),
-                  const ExpansionTile(
-                    tilePadding: EdgeInsets.zero,
-                    title: Text('统计口径'),
-                    children: [
-                      Text(
-                        '学习次数按评分记录计算，卡片张数在所选范围内去重。非重来比例 = 未选“重来”的次数 ÷ 全部评分次数，属于自评结果。\n\n记录耗时可能包含卡片停留和后台时间，不等同于纯专注时长。连续天数从今天起算，今天尚未学习时从昨天起算。\n\n仅统计当前保留的评分记录。撤销评分和删除卡片会同步移除相关统计；导入牌组本身不增加学习记录。',
-                      ),
-                    ],
+                  PressableAction(
+                    label: '重新读取记录',
+                    onPressed: () => ref.invalidate(statisticsProvider(_query)),
                   ),
                 ],
-              );
-            },
-          ),
+              ),
+              data: (snapshot) {
+                _scheduleRefresh(snapshot);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${_date(snapshot.rangeStart)}–${_date(snapshot.today)}',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    LunarHero(
+                      label: '${_period.label} · 学习日',
+                      value: '${snapshot.activeDays}',
+                      unit: '天',
+                      fullMoon: true,
+                      subtitle: '当前连续 ${snapshot.streak} 天',
+                    ),
+                    const SizedBox(height: 20),
+                    StatisticsSummary(statistics: snapshot.summary),
+                    const SizedBox(height: 24),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: LearningCalendar(
+                          snapshot: snapshot,
+                          onMonthChanged: (month) =>
+                              setState(() => _month = month),
+                          onDaySelected: (date) => unawaited(_details(date)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Card(
+                      margin: EdgeInsets.zero,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: StatisticsCharts(snapshot: snapshot),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text('学习日时区：${_offset(snapshot.offsetMinutes)}，与每日额度一致。'),
+                    const SizedBox(height: 12),
+                    const ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: Text('统计口径'),
+                      children: [
+                        Text(
+                          '学习次数按评分记录计算，卡片张数在所选范围内去重。非重来比例 = 未选“重来”的次数 ÷ 全部评分次数，属于自评结果。\n\n记录耗时可能包含卡片停留和后台时间，不等同于纯专注时长。连续天数从今天起算，今天尚未学习时从昨天起算。\n\n仅统计当前保留的评分记录。撤销评分和删除卡片会同步移除相关统计；导入牌组本身不增加学习记录。',
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );

@@ -34,6 +34,10 @@ class ChoicePracticeScaffold extends StatelessWidget {
     this.onConfigure,
     this.initialAttempt,
     this.onAttemptChanged,
+    this.onAnswerSheet,
+    this.onPrevious,
+    this.onSummary,
+    this.notice,
   });
   final String title;
   final StudyCard item;
@@ -55,12 +59,20 @@ class ChoicePracticeScaffold extends StatelessWidget {
   final VoidCallback? onConfigure;
   final ChoiceAttemptSnapshot? initialAttempt;
   final Future<void> Function(ChoiceAttemptSnapshot)? onAttemptChanged;
+  final VoidCallback? onAnswerSheet, onPrevious, onSummary;
+  final String? notice;
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
       actions: [
+        if (onAnswerSheet != null)
+          IconButton(
+            tooltip: '本轮答题卡',
+            onPressed: busy ? null : onAnswerSheet,
+            icon: const Icon(Icons.grid_view_outlined),
+          ),
         if (onFavorite != null)
           IconButton(
             tooltip: item.card.isFavorite ? '取消收藏' : '收藏卡片',
@@ -83,11 +95,19 @@ class ChoicePracticeScaffold extends StatelessWidget {
               unawaited(FeedbackScope.of(context).tap());
               if (value == 'configure') {
                 onConfigure?.call();
+              } else if (value == 'previous') {
+                onPrevious?.call();
+              } else if (value == 'summary') {
+                onSummary?.call();
               } else {
                 unawaited(onSkip!());
               }
             },
             itemBuilder: (_) => [
+              if (onPrevious != null)
+                const PopupMenuItem(value: 'previous', child: Text('上一题')),
+              if (onSummary != null)
+                const PopupMenuItem(value: 'summary', child: Text('返回本轮结果')),
               if (onSkip != null && !answerVisible)
                 const PopupMenuItem(value: 'skip', child: Text('跳过此题')),
               if (onConfigure != null)
@@ -110,6 +130,13 @@ class ChoicePracticeScaffold extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (notice != null) ...[
+                      Text(
+                        notice!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                    ],
                     Row(
                       children: [
                         TouhouTag(place, margin: EdgeInsets.zero),

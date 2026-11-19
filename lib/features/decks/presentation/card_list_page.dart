@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:html/parser.dart' as html;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -54,19 +56,27 @@ class _CardListPageState extends ConsumerState<CardListPage> {
             onPressed: () => context.push('/study?deckId=${widget.deckId}'),
           ),
           const SizedBox(height: 12),
-          PressableAction(
-            label: '随机练习',
-            onPressed: () => context.push('/practice/${widget.deckId}'),
-          ),
-          const SizedBox(height: 12),
-          PressableAction(
-            label: '选择题练习',
-            onPressed: () => context.push('/choice-practice/${widget.deckId}'),
-          ),
-          const SizedBox(height: 12),
-          PressableAction(
-            label: '背卡模式',
-            onPressed: () => context.push('/recitation/${widget.deckId}'),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => context.push('/practice/${widget.deckId}'),
+                icon: const Icon(Icons.shuffle, size: 18),
+                label: const Text('随机练习'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () =>
+                    context.push('/choice-practice/${widget.deckId}'),
+                icon: const Icon(Icons.checklist, size: 18),
+                label: const Text('选择题练习'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => context.push('/recitation/${widget.deckId}'),
+                icon: const Icon(Icons.menu_book_outlined, size: 18),
+                label: const Text('背卡模式'),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           TextButton.icon(
@@ -115,7 +125,20 @@ class _CardListPageState extends ConsumerState<CardListPage> {
                     elevation: 0,
                     child: ListTile(
                       title: Text(
-                        fields['front'] ?? fields['text'] ?? '',
+                        html
+                                    .parseFragment(
+                                      fields['front'] ?? fields['text'] ?? '',
+                                    )
+                                    .text
+                                    ?.trim()
+                                    .isNotEmpty ==
+                                true
+                            ? html
+                                  .parseFragment(
+                                    fields['front'] ?? fields['text'] ?? '',
+                                  )
+                                  .text!
+                            : '图片卡片',
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),

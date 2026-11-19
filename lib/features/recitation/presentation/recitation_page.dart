@@ -217,6 +217,7 @@ class _RecitationPageState extends ConsumerState<RecitationPage>
     final round = _round;
     final item = _item;
     return PageFrame(
+      exterior: false,
       title: '背卡模式',
       header: const TouhouTag(TouhouPlace.school),
       subtitle: '直接阅读题目与答案；浏览不会计入学习评分或改变复习日期。',

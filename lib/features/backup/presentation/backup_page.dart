@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../../app/providers.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../../core/widgets/touhou_tag.dart';
+import '../../../core/widgets/lunar_widgets.dart';
 import '../application/backup_controller.dart';
 import '../data/backup_platform.dart';
 
@@ -93,9 +94,14 @@ class _BackupPageState extends ConsumerState<BackupPage> {
                 child: ListView(
                   padding: const EdgeInsets.all(24),
                   children: [
-                    const TouhouTag(TouhouPlace.eientei),
+                    const Row(
+                      children: [
+                        Expanded(child: TouhouTag(TouhouPlace.eientei)),
+                        LunarPhases(),
+                      ],
+                    ),
                     Text(
-                      '让每一次学习，都有备份。',
+                      '留一份底稿',
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 12),

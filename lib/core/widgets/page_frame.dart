@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../app/theme/lunar_theme.dart';
+import 'lunar_widgets.dart';
+import 'touhou_tag.dart';
+
 class PageFrame extends StatelessWidget {
   const PageFrame({
     super.key,
@@ -11,6 +15,7 @@ class PageFrame extends StatelessWidget {
     this.actions = const [],
     this.scrollController,
     this.bottomBar,
+    this.exterior = true,
   });
   final String title;
   final Widget? titleLeading;
@@ -20,9 +25,15 @@ class PageFrame extends StatelessWidget {
   final List<Widget> actions;
   final ScrollController? scrollController;
   final Widget? bottomBar;
+  final bool exterior;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => LunarSurface(
+    exterior: exterior,
+    child: Builder(builder: _build),
+  );
+
+  Widget _build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: titleLeading == null
           ? Text(title)
@@ -51,11 +62,30 @@ class PageFrame extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 960),
           child: SingleChildScrollView(
             controller: scrollController,
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(exterior ? 20 : 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ?header,
+                if (exterior) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: header is TouhouTag
+                            ? TouhouTag(
+                                (header as TouhouTag).place,
+                                margin: EdgeInsets.zero,
+                              )
+                            : header ??
+                                  TouhouTag(_place, margin: EdgeInsets.zero),
+                      ),
+                      const SizedBox(width: 16),
+                      const LunarPhases(),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                ] else ...[
+                  ?header,
+                ],
                 if (subtitle != null) ...[
                   Text(
                     subtitle!,
@@ -73,6 +103,18 @@ class PageFrame extends StatelessWidget {
       ),
     ),
   );
+
+  TouhouPlace get _place => title.contains('字体')
+      ? TouhouPlace.moonReading
+      : title.contains('提醒')
+      ? TouhouPlace.nightBird
+      : title.contains('反馈')
+      ? TouhouPlace.letter
+      : title.contains('编辑') || title.contains('新建卡片')
+      ? TouhouPlace.hakutaku
+      : title.contains('搜索')
+      ? TouhouPlace.archiveIndex
+      : TouhouPlace.eientei;
 }
 
 void showActionError(BuildContext context, Object error) {

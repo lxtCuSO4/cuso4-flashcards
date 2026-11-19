@@ -73,7 +73,7 @@ void main() {
     final before = await tester.runAsync(
       () async => (await db.select(db.appSettings).get())
           .where((s) => s.key.endsWith(':cursor'))
-          .map((s) => jsonDecode(s.valueJson))
+          .map((s) => (jsonDecode(s.valueJson) as Map)..remove('elapsedMs'))
           .toList(),
     );
     container.read(appRouterProvider).go('/');
@@ -81,7 +81,7 @@ void main() {
     final after = await tester.runAsync(
       () async => (await db.select(db.appSettings).get())
           .where((s) => s.key.endsWith(':cursor'))
-          .map((s) => jsonDecode(s.valueJson))
+          .map((s) => (jsonDecode(s.valueJson) as Map)..remove('elapsedMs'))
           .toList(),
     );
     expect(
@@ -100,6 +100,24 @@ void main() {
     expect(find.text('练习张数'), findsNothing);
     expect(find.text('开始顺序练习'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('leaving an unanswered question saves foreground time', (
+    tester,
+  ) async {
+    await open(tester);
+    await tap(tester, '开始顺序练习');
+    container.read(appRouterProvider).go('/');
+    await tester.pumpAndSettle();
+    final cursor = await tester.runAsync(
+      () async => jsonDecode(
+        (await db.select(db.appSettings).get())
+            .singleWhere((s) => s.key.endsWith(':cursor'))
+            .valueJson,
+      ) as Map,
+    );
+    expect(cursor!['elapsedMs'], greaterThan(0));
+    expect(cursor['attempted'], false);
   });
 
   testWidgets(

@@ -112,7 +112,7 @@ final settingsProvider = StreamProvider((ref) {
   final db = ref.watch(databaseProvider);
   return db
       .customSelect(
-        "SELECT key, value_json FROM app_settings WHERE key NOT LIKE 'practice:%'",
+        "SELECT key, value_json FROM app_settings WHERE key < 'practice:' OR key >= 'practice;'",
         readsFrom: {db.appSettings},
       )
       .watch()

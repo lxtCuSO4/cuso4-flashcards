@@ -12,10 +12,13 @@ class LearningCalendar extends StatelessWidget {
     required this.snapshot,
     required this.onMonthChanged,
     required this.onDaySelected,
+    this.title = '学习日历',
+    this.countLabel = '学习',
   });
   final StatisticsSnapshot snapshot;
   final ValueChanged<DateTime> onMonthChanged;
   final ValueChanged<DateTime> onDaySelected;
+  final String title, countLabel;
 
   void _month(BuildContext context, DateTime value) {
     unawaited(FeedbackScope.of(context).tap());
@@ -58,7 +61,7 @@ class LearningCalendar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('学习日历', style: Theme.of(context).textTheme.titleLarge),
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -232,7 +235,7 @@ class LearningCalendar extends StatelessWidget {
       enabled: !future,
       onTap: future ? null : activate,
       label:
-          '${date.year}年${date.month}月${date.day}日，${future ? '尚未到来' : '学习 $reviews 次'}${today ? '，今天' : ''}',
+          '${date.year}年${date.month}月${date.day}日，${future ? '尚未到来' : '$countLabel $reviews 次'}${today ? '，今天' : ''}',
       child: ExcludeSemantics(
         child: InkWell(
           key: ValueKey('calendar-${date.year}-${date.month}-${date.day}'),

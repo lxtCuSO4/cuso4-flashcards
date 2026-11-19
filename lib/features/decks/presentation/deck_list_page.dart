@@ -10,6 +10,7 @@ import '../../../core/feedback/feedback_controller.dart';
 import '../../../core/widgets/page_frame.dart';
 import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
+import '../../../core/widgets/lunar_widgets.dart';
 
 class DeckListPage extends ConsumerStatefulWidget {
   const DeckListPage({super.key});
@@ -98,8 +99,7 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
     bool isExpanded(int id) => settings.value?['deckExpanded.$id'] == 'true';
     return PageFrame(
       title: '牌组',
-      header: const TouhouTag(TouhouPlace.library),
-      subtitle: '把知识整理成小块，慢慢记牢。',
+      header: const TouhouTag(TouhouPlace.bambooLibrary),
       actions: [
         IconButton(
           onPressed: () => context.push('/search'),
@@ -115,6 +115,8 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          const LunarHeading('卷中有新知'),
+          const SizedBox(height: 18),
           Align(
             alignment: Alignment.centerLeft,
             child: PressableAction(
@@ -197,9 +199,8 @@ class _DeckListPageState extends ConsumerState<DeckListPage> {
                           left: (entry.depth * 16.0).clamp(0, 48),
                           bottom: 10,
                         ),
-                        child: Card(
-                          margin: EdgeInsets.zero,
-                          elevation: 0,
+                        child: LunarBookCard(
+                          index: entry.deck.id,
                           child: ListTile(
                             contentPadding: const EdgeInsets.only(
                               left: 20,

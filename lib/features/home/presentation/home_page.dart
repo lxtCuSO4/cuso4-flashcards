@@ -12,6 +12,7 @@ import '../../../core/widgets/pressable_action.dart';
 import '../../import/presentation/import_recovery_notice.dart';
 import '../domain/home_summary.dart';
 import 'today_overview.dart';
+import '../../../core/widgets/lunar_widgets.dart';
 
 class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
@@ -104,8 +105,7 @@ class _HomePageState extends ConsumerState<HomePage>
           excludeFromSemantics: true,
         ),
       ),
-      header: const TouhouTag(TouhouPlace.school),
-      subtitle: '今天，也为记忆留一点时间。',
+      header: const TouhouTag(TouhouPlace.fireflies),
       actions: [
         IconButton(
           tooltip: '刷新今日概览',
@@ -149,6 +149,12 @@ class _HomePageState extends ConsumerState<HomePage>
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  LunarHeading(
+                    '温故而知新',
+                    subtitle:
+                        '${availability.today.month}月${availability.today.day}日 · 今日',
+                  ),
+                  const SizedBox(height: 20),
                   if (availability.totalCards == 0) ...[
                     Card(
                       margin: EdgeInsets.zero,
@@ -194,56 +200,49 @@ class _HomePageState extends ConsumerState<HomePage>
                       child: const Text('新建第一张卡片'),
                     ),
                   ] else ...[
-                    TodayOverview(summary: snapshot),
-                    const SizedBox(height: 20),
-                    PressableAction(
-                      label: availability.availableCards > 0
-                          ? '开始今日学习'
-                          : '暂时没有可学卡片',
-                      onPressed: availability.availableCards == 0
-                          ? null
-                          : () async {
-                              await context.push('/study');
-                              if (mounted) ref.invalidate(homeSummaryProvider);
-                            },
+                    TodayOverview(
+                      summary: snapshot,
+                      onStart: () async {
+                        await context.push('/study');
+                        if (mounted) ref.invalidate(homeSummaryProvider);
+                      },
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 18),
+                    LunarPair(
+                      first: LunarShortcut(
+                        label: '导入 .apkg 牌组',
+                        hint: '添一卷新知',
+                        icon: Icons.folder_open_outlined,
+                        onTap: () => _go('/import'),
+                      ),
+                      second: LunarShortcut(
+                        label: '新建卡片',
+                        hint: '记下此刻所学',
+                        icon: Icons.edit_note_outlined,
+                        onTap: _creatingCard
+                            ? null
+                            : () => unawaited(_createCard(snapshot)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '已评分 ${snapshot.ratingCount} 次 · 当前连续 ${snapshot.streak} 天',
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => _go('/records', replace: true),
+                          child: const Text('查看学习记录'),
+                        ),
+                      ],
+                    ),
                     if (availability.availableCards == 0)
                       TextButton(
-                        style: TextButton.styleFrom(
-                          minimumSize: const Size(48, 48),
-                        ),
                         onPressed: () => _go('/study-settings'),
                         child: const Text('调整学习设置'),
                       ),
-                    const SizedBox(height: 16),
-                    Card(
-                      margin: EdgeInsets.zero,
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '今日已学 ${snapshot.studiedCards} 张',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '已评分 ${snapshot.ratingCount} 次 · 当前连续 ${snapshot.streak} 天',
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              style: TextButton.styleFrom(
-                                minimumSize: const Size(48, 48),
-                              ),
-                              onPressed: () => _go('/records', replace: true),
-                              child: const Text('查看学习记录'),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
                   ],
                   const SizedBox(height: 32),
                   Text('本机知识库', style: Theme.of(context).textTheme.titleMedium),

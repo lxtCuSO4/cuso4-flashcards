@@ -32,7 +32,7 @@ class StatisticsRepository {
     StatisticsPeriod period = StatisticsPeriod.week,
     DateTime? month,
   }) => db.transaction(() async {
-    final offset = await _offsetMinutes();
+    final offset = await readOffsetMinutes();
     final today = studyDate(nowUtc, offset);
     final calendar = month == null
         ? DateTime.utc(today.year, today.month)
@@ -174,7 +174,7 @@ class StatisticsRepository {
     );
   }
 
-  Future<int> _offsetMinutes() async {
+  Future<int> readOffsetMinutes() async {
     final row = await (db.select(
       db.appSettings,
     )..where((s) => s.key.equals('studyDayOffsetMinutes'))).getSingleOrNull();

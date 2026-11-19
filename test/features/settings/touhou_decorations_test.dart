@@ -61,9 +61,9 @@ void main() {
             ),
           );
       await open(tester);
-      expect(find.text('寺子屋'), findsOneWidget);
+      expect(find.text('萤火之夜'), findsOneWidget);
       await go(tester, '/decks');
-      expect(find.text('寺子屋 · 藏书'), findsOneWidget);
+      expect(find.text('竹林书架'), findsOneWidget);
       await go(tester, '/decks/$deck');
       expect(find.text('寺子屋 · 藏书'), findsOneWidget);
       await go(tester, '/practice/$deck');
@@ -88,7 +88,7 @@ void main() {
       tester.platformDispatcher.textScaleFactorTestValue = 1.8;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       await open(tester);
-      expect(find.text('寺子屋'), findsOneWidget);
+      expect(find.text('萤火之夜'), findsOneWidget);
       expect(find.text('导入 .apkg 牌组'), findsOneWidget);
       await go(tester, '/practice/$deck');
       expect(find.text('迷途竹林'), findsOneWidget);

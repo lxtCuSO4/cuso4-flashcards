@@ -14,6 +14,7 @@ import 'package:cuso4_flashcards/features/decks/domain/choice_question.dart';
 import 'package:cuso4_flashcards/features/decks/domain/note.dart';
 import 'package:cuso4_flashcards/features/study/data/study_repository.dart';
 import 'package:cuso4_flashcards/features/practice/data/practice_repository.dart';
+import 'package:cuso4_flashcards/features/practice/data/practice_session_repository.dart';
 import 'package:cuso4_flashcards/features/settings/data/font_settings_repository.dart';
 import 'package:cuso4_flashcards/features/settings/domain/font_settings.dart';
 import 'package:drift/drift.dart' hide Column;
@@ -195,8 +196,17 @@ void main() {
     );
     await NoteRepository(db).createChoiceNote(deckId: deck, question: question);
     final choiceCard = (await db.select(db.cards).get()).last.id;
-    await PracticeRepository(db)
-        .submitChoice(choiceCard, {2}, expectedQuestion: question);
+    final sessions = PracticeSessionRepository(PracticeRepository(db));
+    var session = await sessions.open(
+      PracticeScope(deckId: deck, choicesOnly: true),
+    );
+    session = await sessions.bindQuestion(
+      session,
+      signature: jsonEncode(question.toFields()),
+      isChoice: true,
+      optionCount: 3,
+    );
+    session = await sessions.submit(session, {2}, question: question);
     await StudyRepository(db).setFavorite(choiceCard, true);
     final file = await export();
     final prepared = await RestoreService(root).prepare(file);
@@ -217,6 +227,17 @@ void main() {
         ),
       );
       expect(restored.toFields(), question.toFields());
+      final answer = copy.select(
+        'SELECT value_json FROM app_settings WHERE key = ?',
+        ['practice:card:${session.id}:$choiceCard'],
+      ).single;
+      expect(jsonDecode(answer['value_json'] as String)['attempted'], true);
+      expect(
+        copy.select(
+          "SELECT key FROM app_settings WHERE key LIKE 'practice:attempt:%'",
+        ),
+        hasLength(1),
+      );
       expect(
         copy
             .select('SELECT card_id, wrong_count FROM wrong_questions')

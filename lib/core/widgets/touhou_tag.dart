@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/lunar_theme.dart';
 
 enum TouhouPlace {
   school('寺子屋', Icons.menu_book_outlined),
@@ -9,7 +10,14 @@ enum TouhouPlace {
   bamboo('迷途竹林', Icons.park_outlined),
   journal('月下手记', Icons.nights_stay_outlined),
   eientei('永远亭', Icons.nights_stay_outlined),
-  bookmarks('铃仙的书签', Icons.bookmark_border_rounded);
+  bookmarks('铃仙的书签', Icons.bookmark_border_rounded),
+  fireflies('萤火之夜', Icons.flare_outlined),
+  bambooLibrary('竹林书架', Icons.auto_stories_outlined),
+  hakutaku('白泽手札', Icons.edit_note_outlined),
+  archiveIndex('慧音的索引', Icons.manage_search_outlined),
+  nightBird('夜雀报时', Icons.notifications_outlined),
+  letter('月下寄语', Icons.mail_outline),
+  moonReading('月下展卷', Icons.menu_book_outlined);
 
   const TouhouPlace(this.label, this.icon);
   final String label;
@@ -31,6 +39,7 @@ class TouhouTag extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final dark = theme.brightness == Brightness.dark;
+    final exterior = LunarScope.isExterior(context);
     final foreground = dark
         ? AppColors.nightTouhouForeground
         : AppColors.touhouForeground;
@@ -44,15 +53,20 @@ class TouhouTag extends StatelessWidget {
               color: dark
                   ? AppColors.nightTouhouSurface
                   : AppColors.touhouSurface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(exterior ? 6 : 12),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: EdgeInsets.symmetric(
+                horizontal: exterior ? 8 : 12,
+                vertical: exterior ? 5 : 8,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(place.icon, size: 14, color: foreground),
-                  const SizedBox(width: 6),
+                  if (!exterior) ...[
+                    Icon(place.icon, size: 14, color: foreground),
+                    const SizedBox(width: 6),
+                  ],
                   Flexible(
                     child: Text(
                       place.label,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../theme/lunar_theme.dart';
+
 import '../../features/home/presentation/home_page.dart';
 import '../../features/decks/presentation/deck_list_page.dart';
 import '../../features/decks/presentation/card_list_page.dart';
@@ -102,7 +104,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/study-settings',
         builder: (_, _) => const StudySettingsPage(),
       ),
-      GoRoute(path: '/backup', builder: (_, _) => const BackupPage()),
+      GoRoute(
+        path: '/backup',
+        builder: (_, _) => const LunarSurface(child: BackupPage()),
+      ),
       GoRoute(path: '/import', builder: (_, _) => const ImportPage()),
       GoRoute(
         path: '/favorites',
@@ -123,7 +128,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ),
       ),
       StatefulShellRoute.indexedStack(
-        builder: (context, state, shell) => AppNavigation(shell: shell),
+        builder: (context, state, shell) =>
+            LunarSurface(child: AppNavigation(shell: shell)),
         branches: [
           StatefulShellBranch(
             routes: [GoRoute(path: '/', builder: (_, _) => const HomePage())],
@@ -160,7 +166,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           StatefulShellBranch(
             routes: [
-              GoRoute(path: '/records', builder: (_, _) => const RecordsPage()),
+              GoRoute(
+                path: '/records',
+                builder: (_, state) => RecordsPage(
+                  initialPractice:
+                      state.uri.queryParameters['mode'] == 'practice',
+                ),
+              ),
             ],
           ),
           StatefulShellBranch(

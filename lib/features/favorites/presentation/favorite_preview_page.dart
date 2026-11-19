@@ -74,6 +74,7 @@ class _FavoritePreviewPageState extends ConsumerState<FavoritePreviewPage>
   );
 
   Widget _frame(Widget child) => PageFrame(
+    exterior: false,
     title: widget.title,
     subtitle: widget.title == '收藏预览' ? '仅预览，不修改学习进度' : '仅预览，不修改学习进度或错题列表',
     child: child,

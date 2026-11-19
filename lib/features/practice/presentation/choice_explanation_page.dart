@@ -23,6 +23,7 @@ class ChoiceExplanationPage extends StatefulWidget {
     required this.position,
     required this.total,
     this.allowAdvance = true,
+    this.onAnswerSheet,
   });
   final ChoiceQuestion question;
   final ChoiceAttemptSnapshot attempt;
@@ -31,6 +32,7 @@ class ChoiceExplanationPage extends StatefulWidget {
   final int position;
   final int total;
   final bool allowAdvance;
+  final Future<int?> Function()? onAnswerSheet;
 
   @override
   State<ChoiceExplanationPage> createState() => _ChoiceExplanationPageState();
@@ -83,8 +85,28 @@ class _ChoiceExplanationPageState extends State<ChoiceExplanationPage>
     final correct = attempt.attempted && question.isCorrect(attempt.selected);
     final scheme = Theme.of(context).colorScheme;
     return PageFrame(
+      exterior: false,
       key: const ValueKey('choice-explanation-page'),
       title: '题目解析',
+      actions: [
+        if (widget.onAnswerSheet != null)
+          IconButton(
+            tooltip: '本轮答题卡',
+            icon: const Icon(Icons.grid_view_outlined),
+            onPressed: _leaving
+                ? null
+                : () async {
+                    setState(() => _leaving = true);
+                    final target = await widget.onAnswerSheet!();
+                    if (!context.mounted) return;
+                    if (target != null) {
+                      Navigator.pop(context, false);
+                    } else {
+                      setState(() => _leaving = false);
+                    }
+                  },
+          ),
+      ],
       header: const TouhouTag(TouhouPlace.study),
       bottomBar: Material(
         color: scheme.surface,

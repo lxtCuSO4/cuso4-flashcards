@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart' show mapEquals;
 
 import '../core/database/app_database.dart';
 import '../core/media/media_repository.dart';
@@ -107,13 +108,22 @@ Future<void> cleanUpUnusedMedia(MediaRepository repository) async {
 final decksProvider = StreamProvider(
   (ref) => ref.watch(deckRepositoryProvider).watchDeckTree(),
 );
-final settingsProvider = StreamProvider(
-  (ref) => ref
-      .watch(databaseProvider)
-      .select(ref.watch(databaseProvider).appSettings)
+final settingsProvider = StreamProvider((ref) {
+  final db = ref.watch(databaseProvider);
+  return db
+      .customSelect(
+        "SELECT key, value_json FROM app_settings WHERE key NOT LIKE 'practice:%'",
+        readsFrom: {db.appSettings},
+      )
       .watch()
-      .map((rows) => {for (final row in rows) row.key: row.valueJson}),
-);
+      .map(
+        (rows) => {
+          for (final row in rows)
+            row.read<String>('key'): row.read<String>('value_json'),
+        },
+      )
+      .distinct((before, after) => mapEquals(before, after));
+});
 
 final cardCountsProvider = StreamProvider((ref) {
   final db = ref.watch(databaseProvider);

@@ -112,7 +112,6 @@ void main() {
     final round = await practice.sample(
       deckId: deck,
       includeChildren: true,
-      count: 500,
       choicesOnly: true,
       order: PracticeOrder.sequential,
     );
@@ -121,25 +120,19 @@ void main() {
       (await practice.sample(
         deckId: deck,
         includeChildren: false,
-        count: 500,
         choicesOnly: true,
       )).cardIds,
       [single],
     );
     await practice.submitChoice(multi, {0}, expectedQuestion: many);
     expect(
-      (await practice.sample(
-        includeChildren: true,
-        count: 500,
-        wrongOnly: true,
-      )).cardIds,
+      (await practice.sample(includeChildren: true, wrongOnly: true)).cardIds,
       [multi],
     );
     expect(
       (await practice.sample(
         deckId: deck,
         includeChildren: false,
-        count: 500,
         wrongOnly: true,
       )).cardIds,
       isEmpty,
@@ -148,7 +141,6 @@ void main() {
     expect(
       (await practice.sample(
         includeChildren: true,
-        count: 500,
         favoritesOnly: true,
         choicesOnly: true,
       )).cardIds,
@@ -157,11 +149,7 @@ void main() {
     await practice.submitChoice(multi, {0, 2}, expectedQuestion: many);
     expect(round.cardIds, [single, multi]);
     expect(
-      (await practice.sample(
-        includeChildren: true,
-        count: 500,
-        wrongOnly: true,
-      )).cardIds,
+      (await practice.sample(includeChildren: true, wrongOnly: true)).cardIds,
       isEmpty,
     );
   });

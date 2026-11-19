@@ -5,35 +5,58 @@ import 'package:drift/drift.dart';
 import '../../../core/database/app_database.dart';
 import '../../decks/domain/choice_question.dart';
 import '../../decks/domain/note.dart';
+import '../domain/practice_session.dart';
 
-enum PracticeOrder { random, sequential }
-
-class PracticeRound {
-  PracticeRound({required this.deckName, required Iterable<int> cardIds})
-    : cardIds = List.unmodifiable(cardIds);
-
-  final String deckName;
-  final List<int> cardIds;
-}
+export '../domain/practice_session.dart';
 
 /// Practice results only update mistakes, never the formal learning schedule.
 class PracticeRepository {
   PracticeRepository(this.db);
   final AppDatabase db;
-  static const maxCount = 500;
+
+  Future<bool> isEligible(PracticeScope scope, int cardId) async {
+    final rows = await db
+        .customSelect(
+          '''
+      WITH RECURSIVE scope(id) AS (
+        SELECT id FROM decks WHERE id = ?
+        UNION SELECT d.id FROM decks d JOIN scope s ON d.parent_id = s.id WHERE ? = 1
+      )
+      SELECT c.id FROM cards c JOIN notes n ON n.id = c.note_id
+      WHERE c.id = ? AND (? IS NULL OR n.deck_id IN (SELECT id FROM scope))
+        AND (? = 0 OR EXISTS (SELECT 1 FROM favorites f WHERE f.card_id = c.id))
+        AND (? = 0 OR n.note_type IN (2, 3))
+        AND (? = 0 OR EXISTS (SELECT 1 FROM wrong_questions w WHERE w.card_id = c.id))
+    ''',
+          variables: [
+            Variable<int>(scope.deckId),
+            Variable(scope.includeChildren ? 1 : 0),
+            Variable(cardId),
+            Variable<int>(scope.deckId),
+            Variable(scope.favoritesOnly ? 1 : 0),
+            Variable(scope.choicesOnly || scope.wrongOnly ? 1 : 0),
+            Variable(scope.wrongOnly ? 1 : 0),
+          ],
+          readsFrom: {
+            db.cards,
+            db.notes,
+            db.decks,
+            db.favorites,
+            db.wrongQuestions,
+          },
+        )
+        .get();
+    return rows.isNotEmpty;
+  }
 
   Future<PracticeRound> sample({
     int? deckId,
     required bool includeChildren,
-    required int count,
     bool favoritesOnly = false,
     bool choicesOnly = false,
     bool wrongOnly = false,
     PracticeOrder order = PracticeOrder.random,
   }) async {
-    if (count < 1 || count > maxCount) {
-      throw ArgumentError('练习张数须为 1–500');
-    }
     if (deckId == null && !favoritesOnly && !wrongOnly) {
       throw ArgumentError('请选择练习牌组');
     }
@@ -56,7 +79,7 @@ class PracticeRepository {
           AND (? = 0 OR EXISTS (SELECT 1 FROM favorites f WHERE f.card_id = c.id))
           AND (? = 0 OR n.note_type IN (2, 3))
           AND (? = 0 OR EXISTS (SELECT 1 FROM wrong_questions w WHERE w.card_id = c.id))
-        ORDER BY ${order == PracticeOrder.random ? 'RANDOM()' : 'c.id'} LIMIT ?''',
+        ORDER BY ${order == PracticeOrder.random ? 'RANDOM()' : 'c.id'}''',
             variables: [
               Variable<int>(deckId),
               Variable(includeChildren ? 1 : 0),
@@ -64,7 +87,6 @@ class PracticeRepository {
               Variable(favoritesOnly ? 1 : 0),
               Variable(choicesOnly || wrongOnly ? 1 : 0),
               Variable(wrongOnly ? 1 : 0),
-              Variable(count),
             ],
             readsFrom: {
               db.decks,

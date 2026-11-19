@@ -29,7 +29,6 @@ class ControlledPracticeRepository extends PracticeRepository {
   Future<PracticeRound> sample({
     int? deckId,
     required bool includeChildren,
-    required int count,
     bool favoritesOnly = false,
     bool choicesOnly = false,
     bool wrongOnly = false,
@@ -38,7 +37,7 @@ class ControlledPracticeRepository extends PracticeRepository {
     calls++;
     if (gate != null) await gate!.future;
     if (fail) throw StateError('抽卡暂时失败，请重试');
-    return PracticeRound(deckName: '操作系统', cardIds: ids.take(count));
+    return PracticeRound(deckName: '操作系统', cardIds: ids);
   }
 }
 
@@ -121,7 +120,13 @@ void main() {
       'review_logs',
       'app_settings',
     ])
-      (await db.customSelect('SELECT * FROM $table').get())
+      (await db
+              .customSelect(
+                table == 'app_settings'
+                    ? "SELECT * FROM app_settings WHERE key NOT LIKE 'practice:%'"
+                    : 'SELECT * FROM $table',
+              )
+              .get())
           .map((r) => r.data)
           .toList(),
   ];
@@ -309,34 +314,33 @@ void main() {
     },
   );
 
-  testWidgets('count validation, empty scope and include chapters are usable', (
-    tester,
-  ) async {
-    final child = await tester.runAsync(
-      () => DeckRepository(db).createDeck('只有子章节', parentId: deck),
-    );
-    await tester.runAsync(() async {
-      for (final note in await db.select(db.notes).get()) {
-        await NoteRepository(db).deleteNote(note.id);
-      }
-      await NoteRepository(db).createBasicNote(deckId: child!, front: '子章节问题');
-    });
-    await open(tester);
-    for (final input in ['0', '501', '']) {
-      await tester.enterText(find.byType(TextFormField), input);
+  testWidgets(
+    'no quantity configuration; empty scope and include chapters are usable',
+    (tester) async {
+      final child = await tester.runAsync(
+        () => DeckRepository(db).createDeck('只有子章节', parentId: deck),
+      );
+      await tester.runAsync(() async {
+        for (final note in await db.select(db.notes).get()) {
+          await NoteRepository(db).deleteNote(note.id);
+        }
+        await NoteRepository(db)
+            .createBasicNote(deckId: child!, front: '子章节问题');
+      });
+      await open(tester);
+      expect(find.byType(TextFormField), findsNothing);
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
       await tap(tester, '开始随机练习');
-      expect(find.text('请输入 1–500 之间的整数'), findsOneWidget);
-    }
-    await tester.enterText(find.byType(TextFormField), '20');
-    await tester.tap(find.byType(SwitchListTile));
-    await tap(tester, '开始随机练习');
-    expect(find.text('当前范围没有卡片。可包含子章节，或先添加、导入卡片。'), findsOneWidget);
-    await tester.tap(find.byType(SwitchListTile));
-    await tap(tester, '开始随机练习');
-    expect(find.text('第 1 / 1 张'), findsOneWidget);
-    expect(find.text('子章节问题'), findsOneWidget);
-    await close(tester);
-  });
+      expect(find.text('当前范围没有卡片。可包含子章节，或先添加、导入卡片。'), findsOneWidget);
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      await tap(tester, '开始随机练习');
+      expect(find.text('第 1 / 1 张'), findsOneWidget);
+      expect(find.text('子章节问题'), findsOneWidget);
+      await close(tester);
+    },
+  );
 
   testWidgets(
     'practice displays an actual local image through the existing renderer',
@@ -436,10 +440,7 @@ void main() {
       });
       await tap(tester, '显示答案');
       await tap(tester, '下一张');
-      expect(find.text('卡片已删除或暂时无法加载。可以重试，或跳过这张卡片。'), findsOneWidget);
-      await tap(tester, '重试加载');
-      expect(find.text('跳过此卡'), findsOneWidget);
-      await tap(tester, '跳过此卡');
+      expect(find.text('本轮练习完成'), findsOneWidget);
       expect(find.text('已练习 1 张'), findsOneWidget);
       expect(find.text('另有 1 张已跳过'), findsOneWidget);
       await close(tester);
@@ -463,7 +464,7 @@ void main() {
       tester.view.physicalSize = const Size(1125, 2001);
       await tester.pumpAndSettle();
       expect(
-        Theme.of(tester.element(find.byType(TextFormField))).brightness,
+        Theme.of(tester.element(find.byType(SwitchListTile))).brightness,
         Brightness.dark,
       );
       await tap(tester, '开始随机练习');

@@ -20,6 +20,8 @@ class PracticeCardFace extends StatelessWidget {
     this.onReveal,
     this.onSubmit,
     this.onReview,
+    this.initialAttempt,
+    this.onAttemptChanged,
   });
   final StudyCard item;
   final bool answerVisible;
@@ -28,6 +30,8 @@ class PracticeCardFace extends StatelessWidget {
   final VoidCallback? onReveal;
   final Future<void> Function(Set<int>)? onSubmit;
   final ValueChanged<ChoiceAttemptSnapshot>? onReview;
+  final ChoiceAttemptSnapshot? initialAttempt;
+  final Future<void> Function(ChoiceAttemptSnapshot)? onAttemptChanged;
 
   Widget _content(String source) =>
       CardContent(source: source, media: media, audio: audio);
@@ -53,6 +57,8 @@ class PracticeCardFace extends StatelessWidget {
                 onReveal: onReveal ?? () {},
                 onSubmit: onSubmit,
                 onReview: onReview,
+                initialAttempt: initialAttempt,
+                onAttemptChanged: onAttemptChanged,
                 showExplanation: onReview == null,
               ),
             ),

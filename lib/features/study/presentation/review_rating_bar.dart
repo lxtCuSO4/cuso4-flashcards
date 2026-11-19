@@ -51,7 +51,13 @@ class ReviewRatingBar extends StatelessWidget {
                 data: Theme.of(context).copyWith(
                   colorScheme: scheme.copyWith(
                     primary: colors[rating.index],
-                    onPrimary: const Color(0xFF14251F),
+                    onPrimary:
+                        ThemeData.estimateBrightnessForColor(
+                              colors[rating.index],
+                            ) ==
+                            Brightness.dark
+                        ? Colors.white
+                        : const Color(0xFF14251F),
                   ),
                 ),
                 child: PressableAction(

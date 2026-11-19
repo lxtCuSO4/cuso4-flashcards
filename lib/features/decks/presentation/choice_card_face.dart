@@ -30,6 +30,8 @@ class ChoiceCardFace extends StatefulWidget {
     this.onNext,
     this.nextLabel = '下一张',
     this.draftImages = const {},
+    this.initialAttempt,
+    this.onAttemptChanged,
   });
   final ChoiceQuestion question;
   final MediaRepository media;
@@ -45,6 +47,8 @@ class ChoiceCardFace extends StatefulWidget {
   final FutureOr<void> Function()? onNext;
   final String nextLabel;
   final Map<String, Uint8List> draftImages;
+  final ChoiceAttemptSnapshot? initialAttempt;
+  final Future<void> Function(ChoiceAttemptSnapshot)? onAttemptChanged;
 
   @override
   State<ChoiceCardFace> createState() => _ChoiceCardFaceState();
@@ -64,6 +68,22 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
   }
 
   void _prepare() {
+    final saved = widget.initialAttempt;
+    if (saved != null &&
+        saved.order.length == widget.question.options.length &&
+        saved.order.toSet().length == saved.order.length &&
+        saved.order.every(
+          (i) => i >= 0 && i < widget.question.options.length,
+        ) &&
+        saved.selected.every(saved.order.contains)) {
+      _order = saved.order.toList();
+      _selected
+        ..clear()
+        ..addAll(saved.selected);
+      _attempted = saved.attempted;
+      _submitError = null;
+      return;
+    }
     _order = List.generate(widget.question.options.length, (i) => i);
     if (widget.question.shuffle) _order.shuffle();
     _selected.clear();
@@ -88,10 +108,11 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
     zoomImages: layout != null,
   );
 
-  void _choose(int index) {
+  Future<void> _choose(int index) async {
     if (!widget.enabled || widget.answerVisible || _submitting) return;
     unawaited(FeedbackScope.of(context).tap());
     setState(() {
+      _submitting = widget.onAttemptChanged != null;
       if (widget.question.type == NoteType.singleChoice) {
         _selected
           ..clear()
@@ -100,6 +121,15 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
         _selected.remove(index);
       }
     });
+    if (widget.onAttemptChanged != null) {
+      try {
+        await widget.onAttemptChanged!(_snapshot());
+      } catch (_) {
+        if (mounted) setState(() => _submitError = '选择保存失败，请重试，或提交当前选择。');
+      } finally {
+        if (mounted) setState(() => _submitting = false);
+      }
+    }
   }
 
   Future<void> _submit() async {

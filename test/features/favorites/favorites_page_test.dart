@@ -206,7 +206,7 @@ void main() {
       await tester.tap(find.text('收藏随机练习'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('开始随机练习'));
-      await tester.enterText(find.byType(TextFormField), '500');
+      expect(find.byType(TextFormField), findsNothing);
       await tester.tap(find.text('开始随机练习'));
       await tester.pumpAndSettle();
       expect(find.text('第 1 / 32 张'), findsOneWidget);
@@ -241,7 +241,13 @@ void main() {
           'review_logs',
           'app_settings',
         ])
-          (await db.customSelect('SELECT * FROM $table').get())
+          (await db
+                  .customSelect(
+                    table == 'app_settings'
+                        ? "SELECT * FROM app_settings WHERE key NOT LIKE 'practice:%'"
+                        : 'SELECT * FROM $table',
+                  )
+                  .get())
               .map((r) => r.data)
               .toList(),
       ];

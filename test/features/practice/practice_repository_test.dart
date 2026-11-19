@@ -56,14 +56,12 @@ void main() {
       final direct = await repository.sample(
         deckId: root,
         includeChildren: false,
-        count: 500,
       );
       expect(direct.deckName, '操作系统');
       expect(direct.cardIds, unorderedEquals(ownCards));
       final nested = await repository.sample(
         deckId: root,
         includeChildren: true,
-        count: 500,
       );
       expect(nested.cardIds, unorderedEquals(allCards));
       expect(nested.cardIds.toSet().length, nested.cardIds.length);
@@ -71,34 +69,20 @@ void main() {
     },
   );
 
-  test('bounded sample is unique and empty deck returns no cards', () async {
-    final sample = await repository.sample(
-      deckId: root,
-      includeChildren: true,
-      count: 3,
-    );
-    expect(sample.cardIds.length, 3);
-    expect(sample.cardIds.toSet().length, 3);
+  test('full scope is unique and empty deck returns no cards', () async {
+    final sample = await repository.sample(deckId: root, includeChildren: true);
+    expect(sample.cardIds.length, allCards.length);
+    expect(sample.cardIds.toSet().length, allCards.length);
     expect(allCards, containsAll(sample.cardIds));
     expect(
-      (await repository.sample(
-        deckId: empty,
-        includeChildren: true,
-        count: 20,
-      )).cardIds,
+      (await repository.sample(deckId: empty, includeChildren: true)).cardIds,
       isEmpty,
     );
   });
 
-  test('rejects missing deck and out of range counts', () async {
-    for (final count in [0, -1, 501]) {
-      await expectLater(
-        repository.sample(deckId: root, includeChildren: true, count: count),
-        throwsArgumentError,
-      );
-    }
+  test('rejects missing deck', () async {
     await expectLater(
-      repository.sample(deckId: -1, includeChildren: true, count: 20),
+      repository.sample(deckId: -1, includeChildren: true),
       throwsStateError,
     );
   });
@@ -115,14 +99,12 @@ void main() {
       final direct = await repository.sample(
         deckId: root,
         includeChildren: false,
-        count: 500,
         favoritesOnly: true,
       );
       expect(direct.cardIds, [ownCards.first]);
       final nested = await repository.sample(
         deckId: root,
         includeChildren: true,
-        count: 500,
         favoritesOnly: true,
       );
       expect(
@@ -131,7 +113,6 @@ void main() {
       );
       final all = await repository.sample(
         includeChildren: true,
-        count: 500,
         favoritesOnly: true,
       );
       expect(all.deckName, '全部牌组');
@@ -140,17 +121,15 @@ void main() {
         unorderedEquals([ownCards.first, childCard, grandchildCard, otherCard]),
       );
       final limited = await repository.sample(
-        count: 2,
         includeChildren: false,
         favoritesOnly: true,
       );
-      expect(limited.cardIds.toSet().length, 2);
+      expect(limited.cardIds.toSet().length, all.cardIds.length);
       await StudyRepository(db).setFavorite(ownCards.first, false);
       expect(
         (await repository.sample(
           deckId: root,
           includeChildren: false,
-          count: 20,
           favoritesOnly: true,
         )).cardIds,
         isEmpty,
@@ -158,7 +137,7 @@ void main() {
       // A completed round remains an immutable snapshot; the next round resamples.
       expect(direct.cardIds, [ownCards.first]);
       await expectLater(
-        repository.sample(includeChildren: true, count: 20),
+        repository.sample(includeChildren: true),
         throwsArgumentError,
       );
     },
@@ -184,7 +163,6 @@ void main() {
       final round = await repository.sample(
         deckId: root,
         includeChildren: true,
-        count: 500,
         favoritesOnly: true,
       );
       for (final id in round.cardIds) {

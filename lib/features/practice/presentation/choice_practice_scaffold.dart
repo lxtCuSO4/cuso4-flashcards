@@ -31,6 +31,9 @@ class ChoicePracticeScaffold extends StatelessWidget {
     this.onFavorite,
     this.onEdit,
     this.onSkip,
+    this.onConfigure,
+    this.initialAttempt,
+    this.onAttemptChanged,
   });
   final String title;
   final StudyCard item;
@@ -49,6 +52,9 @@ class ChoicePracticeScaffold extends StatelessWidget {
   final Future<void> Function()? onFavorite;
   final Future<void> Function()? onEdit;
   final Future<void> Function()? onSkip;
+  final VoidCallback? onConfigure;
+  final ChoiceAttemptSnapshot? initialAttempt;
+  final Future<void> Function(ChoiceAttemptSnapshot)? onAttemptChanged;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -69,16 +75,23 @@ class ChoicePracticeScaffold extends StatelessWidget {
             onPressed: busy ? null : onEdit,
             icon: const Icon(Icons.edit_outlined),
           ),
-        if (onSkip != null && !answerVisible)
+        if (onConfigure != null || onSkip != null && !answerVisible)
           PopupMenuButton<String>(
             tooltip: '更多操作',
             enabled: !busy,
-            onSelected: (_) {
+            onSelected: (value) {
               unawaited(FeedbackScope.of(context).tap());
-              unawaited(onSkip!());
+              if (value == 'configure') {
+                onConfigure?.call();
+              } else {
+                unawaited(onSkip!());
+              }
             },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'skip', child: Text('跳过此题')),
+            itemBuilder: (_) => [
+              if (onSkip != null && !answerVisible)
+                const PopupMenuItem(value: 'skip', child: Text('跳过此题')),
+              if (onConfigure != null)
+                const PopupMenuItem(value: 'configure', child: Text('切换练习方式')),
             ],
           ),
       ],
@@ -151,6 +164,8 @@ class ChoicePracticeScaffold extends StatelessWidget {
                     showExplanation: false,
                     onNext: onNext,
                     nextLabel: nextLabel,
+                    initialAttempt: initialAttempt,
+                    onAttemptChanged: onAttemptChanged,
                   ),
                 ),
               ),

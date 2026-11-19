@@ -63,6 +63,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('我的').last);
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('备份与恢复'));
     await tester.tap(find.text('备份与恢复'));
     await tester.pumpAndSettle();
   }

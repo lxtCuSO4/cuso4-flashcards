@@ -7,6 +7,7 @@ import 'package:html/parser.dart' as html;
 import '../media/local_audio_controller.dart';
 import '../media/media_repository.dart';
 import '../widgets/pressable_action.dart';
+import '../typography/font_scale_scope.dart';
 
 /// Native rendering ignores CSS, links and executable HTML.
 class CardContent extends StatelessWidget {
@@ -55,100 +56,110 @@ class CardContent extends StatelessWidget {
     'h4',
   };
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, box) {
-      final base = Theme.of(context).textTheme.titleLarge!
-          .copyWith(height: 1.65);
-      List<InlineSpan> render(dom.Node node, TextStyle style, [int depth = 0]) {
-        if (depth > 64) return const [];
-        if (node is dom.Text) {
-          final result = <InlineSpan>[];
-          var offset = 0;
-          for (final match in _sound.allMatches(node.data)) {
+  Widget build(BuildContext context) => MediaQuery(
+    data: MediaQuery.of(context)
+        .copyWith(textScaler: FontScaleScope.readingOf(context)),
+    child: LayoutBuilder(
+      builder: (context, box) {
+        final base = Theme.of(context).textTheme.titleLarge!
+            .copyWith(height: 1.65);
+        List<InlineSpan> render(
+          dom.Node node,
+          TextStyle style, [
+          int depth = 0,
+        ]) {
+          if (depth > 64) return const [];
+          if (node is dom.Text) {
+            final result = <InlineSpan>[];
+            var offset = 0;
+            for (final match in _sound.allMatches(node.data)) {
+              result.add(
+                TextSpan(
+                  text: node.data.substring(offset, match.start),
+                  style: style,
+                ),
+              );
+              result.add(
+                WidgetSpan(
+                  child: SizedBox(
+                    width: box.maxWidth,
+                    child: _AudioControl(token: match[1]!, audio: audio),
+                  ),
+                ),
+              );
+              offset = match.end;
+            }
             result.add(
-              TextSpan(
-                text: node.data.substring(offset, match.start),
-                style: style,
-              ),
+              TextSpan(text: node.data.substring(offset), style: style),
             );
-            result.add(
+            return result;
+          }
+          if (node is! dom.Element || _blocked.contains(node.localName)) {
+            return const [];
+          }
+          final tag = node.localName;
+          if (tag == 'br' || tag == 'hr') return [const TextSpan(text: '\n')];
+          if (tag == 'img') {
+            return [
               WidgetSpan(
                 child: SizedBox(
                   width: box.maxWidth,
-                  child: _AudioControl(token: match[1]!, audio: audio),
+                  child: _LocalImage(
+                    token: node.attributes['src'] ?? '',
+                    media: media,
+                    draft: draftImages[node.attributes['src']],
+                  ),
                 ),
               ),
-            );
-            offset = match.end;
+            ];
           }
-          result.add(TextSpan(text: node.data.substring(offset), style: style));
-          return result;
-        }
-        if (node is! dom.Element || _blocked.contains(node.localName)) {
-          return const [];
-        }
-        final tag = node.localName;
-        if (tag == 'br' || tag == 'hr') return [const TextSpan(text: '\n')];
-        if (tag == 'img') {
-          return [
-            WidgetSpan(
-              child: SizedBox(
-                width: box.maxWidth,
-                child: _LocalImage(
-                  token: node.attributes['src'] ?? '',
-                  media: media,
-                  draft: draftImages[node.attributes['src']],
+          final next = style.copyWith(
+            fontWeight: {'b', 'strong', 'th'}.contains(tag)
+                ? FontWeight.w700
+                : null,
+            fontStyle: {'i', 'em'}.contains(tag) ? FontStyle.italic : null,
+            decoration: tag == 'u'
+                ? TextDecoration.underline
+                : tag == 's'
+                ? TextDecoration.lineThrough
+                : null,
+            fontFamily: {'code', 'pre'}.contains(tag) ? 'monospace' : null,
+            fontSize: {'sub', 'sup', 'small'}.contains(tag)
+                ? (style.fontSize ?? 22) * .75
+                : null,
+          );
+          final children = node.nodes
+              .expand((child) => render(child, next, depth + 1))
+              .toList();
+          if (tag == 'sub' || tag == 'sup') {
+            return [
+              WidgetSpan(
+                alignment: PlaceholderAlignment.baseline,
+                baseline: TextBaseline.alphabetic,
+                child: Transform.translate(
+                  offset: Offset(0, tag == 'sub' ? 4 : -6),
+                  child: Text.rich(TextSpan(children: children), style: next),
                 ),
               ),
-            ),
-          ];
-        }
-        final next = style.copyWith(
-          fontWeight: {'b', 'strong', 'th'}.contains(tag)
-              ? FontWeight.w700
-              : null,
-          fontStyle: {'i', 'em'}.contains(tag) ? FontStyle.italic : null,
-          decoration: tag == 'u'
-              ? TextDecoration.underline
-              : tag == 's'
-              ? TextDecoration.lineThrough
-              : null,
-          fontFamily: {'code', 'pre'}.contains(tag) ? 'monospace' : null,
-          fontSize: {'sub', 'sup', 'small'}.contains(tag)
-              ? (style.fontSize ?? 22) * .75
-              : null,
-        );
-        final children = node.nodes
-            .expand((child) => render(child, next, depth + 1))
-            .toList();
-        if (tag == 'sub' || tag == 'sup') {
+            ];
+          }
           return [
-            WidgetSpan(
-              alignment: PlaceholderAlignment.baseline,
-              baseline: TextBaseline.alphabetic,
-              child: Transform.translate(
-                offset: Offset(0, tag == 'sub' ? 4 : -6),
-                child: Text.rich(TextSpan(children: children), style: next),
-              ),
-            ),
+            if (_blocks.contains(tag)) const TextSpan(text: '\n'),
+            if (tag == 'li') const TextSpan(text: '• '),
+            ...children,
+            if (tag == 'td' || tag == 'th') const TextSpan(text: '   '),
+            if (_blocks.contains(tag)) const TextSpan(text: '\n'),
           ];
         }
-        return [
-          if (_blocks.contains(tag)) const TextSpan(text: '\n'),
-          if (tag == 'li') const TextSpan(text: '• '),
-          ...children,
-          if (tag == 'td' || tag == 'th') const TextSpan(text: '   '),
-          if (_blocks.contains(tag)) const TextSpan(text: '\n'),
-        ];
-      }
 
-      final nodes = html.parseFragment(source).nodes;
-      return Text.rich(
-        TextSpan(children: nodes.expand((n) => render(n, base)).toList()),
-        style: base,
-        textWidthBasis: TextWidthBasis.parent,
-      );
-    },
+        final nodes = html.parseFragment(source).nodes;
+        return Text.rich(
+          TextSpan(children: nodes.expand((n) => render(n, base)).toList()),
+          style: base,
+          textWidthBasis: TextWidthBasis.parent,
+        );
+      },
+    ),
   );
 }
 

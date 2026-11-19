@@ -14,6 +14,8 @@ import 'package:cuso4_flashcards/features/decks/domain/choice_question.dart';
 import 'package:cuso4_flashcards/features/decks/domain/note.dart';
 import 'package:cuso4_flashcards/features/study/data/study_repository.dart';
 import 'package:cuso4_flashcards/features/practice/data/practice_repository.dart';
+import 'package:cuso4_flashcards/features/settings/data/font_settings_repository.dart';
+import 'package:cuso4_flashcards/features/settings/domain/font_settings.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -129,6 +131,8 @@ void main() {
   });
 
   test('WAL snapshot includes progress, favorites, settings and referenced media only', () async {
+    await FontSettingsRepository(db)
+        .save(FontSettings(uiPercent: 125, cardPercent: 175));
     await File(p.join(root.path, 'media', 'unused')).writeAsString('not used');
     final file = await export();
     final archive = ZipDecoder().decodeBytes(await file.readAsBytes());
@@ -159,6 +163,17 @@ void main() {
       );
       expect(copy.select('SELECT name FROM tags').single['name'], '操作系统');
       expect(copy.select('SELECT rating FROM review_logs').single['rating'], 3);
+      expect(
+        jsonDecode(
+          copy
+                  .select(
+                    "SELECT value_json FROM app_settings WHERE key='fontSettings'",
+                  )
+                  .single['value_json']
+              as String,
+        ),
+        {'uiPercent': 125, 'cardPercent': 175},
+      );
     } finally {
       copy.close();
     }

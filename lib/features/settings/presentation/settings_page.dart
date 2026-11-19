@@ -66,6 +66,13 @@ class SettingsPage extends ConsumerWidget {
                   ),
                 ),
                 ListTile(
+                  leading: const Icon(Icons.text_fields),
+                  title: const Text('字体大小'),
+                  subtitle: const Text('分别调整界面和卡片阅读字号'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/font-settings'),
+                ),
+                ListTile(
                   title: const Text('触觉反馈'),
                   subtitle: const Text('按键确认的震动强度'),
                   trailing: DropdownButton<String>(

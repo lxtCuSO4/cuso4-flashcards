@@ -11,6 +11,8 @@
 
 ## 当前阶段
 
+- [x] 2026-11-19 用户授权发布最新版本 `v1.1.3`：包含独立解析页和应用内字号设置，源码更新至 GitHub main，Release 附 ARM64 APK 和使用指南；保留 PDF 计划等本地文件不上传。
+
 - [x] 1.1.3+6 应用内字号：界面／卡片分别调节、预览、保存和恢复默认，保持系统非线性缩放，随备份保留。验收记录见 `docs/font-settings.md` 与 `docs/releases/2026-11-19-font-settings.md`。
 
 - [x] 1.1.2+5 选择题独立解析页：提交后自动打开，底部固定返回题目／下一题，原题目页按钮保留；判分、错题及选项顺序保持。实施和验收见 `docs/choice-explanation.md`、`docs/releases/2026-11-19-choice-explanation.md`。

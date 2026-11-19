@@ -2,9 +2,11 @@
 
 本地使用的 Android 闪卡应用，支持 Android 8.0 及以上，无需服务器或账户。
 
-[下载 v1.1.1 APK 与使用指南](https://github.com/lxtCuSO4/cuso4-flashcards/releases/tag/v1.1.1)。本版为开发预览版，适用于 Android 8.0 及以上的 ARM64 手机，约 23 MB。覆盖安装可保留已有数据，建议更新前先导出本地备份。
+[下载 v1.1.3 APK 与使用指南](https://github.com/lxtCuSO4/cuso4-flashcards/releases/tag/v1.1.3)。本版为开发预览版，适用于 Android 8.0 及以上的 ARM64 手机，约 23.1 MB。覆盖安装可保留已有数据，建议更新前先导出本地备份。
 
 支持基础卡、填空卡、单选题、多选题、文字与图片 `.apkg` 导入、FSRS 学习、随机练习、收藏、学习日历、跨牌组搜索、批量管理、本地提醒、存储管理及备份恢复。导入异常中断后，下次启动会安全清理暂存并提示重新选择牌组包。
+
+1.1.3 新增「我的 → 字体大小」：分别调节界面文字（80%–150%）和卡片阅读文字（80%–200%），支持实时预览、保存和恢复默认，100% 跟随系统字号。设置保存在本机并随完整备份恢复。本版同时包含独立选择题解析页：提交后自动打开，底部固定「返回题目／下一题」，题目页原有按钮保留。
 
 1.1.0 新增答案默认可见的背卡模式，以及可选的自定义自然日策略（默认重来 10 分钟，困难／良好／简单 1／3／7 天），并修复学习中打开编辑页空白的问题。默认 FSRS 保留原有行为；设置只影响之后的评分，背卡浏览不改变学习进度。
 
@@ -19,7 +21,9 @@
 - 背卡模式与编辑修复：[docs/recitation.md](docs/recitation.md)
 - 排程策略与学习设置：[docs/study-settings.md](docs/study-settings.md)
 - 制卡规范：[制卡规范.md](制卡规范.md)（将资料交给大模型或脚本制作为 `.apkg` 前请先阅读）
-- 本次发布说明：[docs/releases/2026-11-16.md](docs/releases/2026-11-16.md)
+- 本次发布说明：[docs/releases/v1.1.3-notes.md](docs/releases/v1.1.3-notes.md)
+- 字号设置与验证记录：[docs/font-settings.md](docs/font-settings.md)
+- 独立解析页与返回／切题：[docs/choice-explanation.md](docs/choice-explanation.md)
 - 选择题、问题反馈与本版安装验收：`docs/choice-feedback.md`
 - 选择题导入、原地转换及仓库入口：`docs/choice-import.md`
 - 选择题独立练习、错题和收藏专项：`docs/choice-practice.md`

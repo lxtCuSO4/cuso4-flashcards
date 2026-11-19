@@ -17,11 +17,19 @@ class CardContent extends StatelessWidget {
     required this.media,
     required this.audio,
     this.draftImages = const {},
+    this.textScaler,
+    this.lineHeight = 1.65,
+    this.imageMaxHeight = 280,
+    this.zoomImages = false,
   });
   final String source;
   final MediaRepository media;
   final LocalAudioController audio;
   final Map<String, Uint8List> draftImages;
+  final TextScaler? textScaler;
+  final double lineHeight;
+  final double imageMaxHeight;
+  final bool zoomImages;
   static final _sound = RegExp(r'\[sound:([^\]\r\n]+)\]');
   static const _blocked = {
     'script',
@@ -58,11 +66,11 @@ class CardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) => MediaQuery(
     data: MediaQuery.of(context)
-        .copyWith(textScaler: FontScaleScope.readingOf(context)),
+        .copyWith(textScaler: textScaler ?? FontScaleScope.readingOf(context)),
     child: LayoutBuilder(
       builder: (context, box) {
         final base = Theme.of(context).textTheme.titleLarge!
-            .copyWith(height: 1.65);
+            .copyWith(height: lineHeight);
         List<InlineSpan> render(
           dom.Node node,
           TextStyle style, [
@@ -108,6 +116,8 @@ class CardContent extends StatelessWidget {
                     token: node.attributes['src'] ?? '',
                     media: media,
                     draft: draftImages[node.attributes['src']],
+                    maxHeight: imageMaxHeight,
+                    zoom: zoomImages,
                   ),
                 ),
               ),
@@ -164,10 +174,18 @@ class CardContent extends StatelessWidget {
 }
 
 class _LocalImage extends StatefulWidget {
-  const _LocalImage({required this.token, required this.media, this.draft});
+  const _LocalImage({
+    required this.token,
+    required this.media,
+    this.draft,
+    this.maxHeight = 280,
+    this.zoom = false,
+  });
   final String token;
   final MediaRepository media;
   final Uint8List? draft;
+  final double maxHeight;
+  final bool zoom;
   @override
   State<_LocalImage> createState() => _LocalImageState();
 }
@@ -206,6 +224,12 @@ class _LocalImageState extends State<_LocalImage> {
       future: _asset,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
+          if (widget.zoom) {
+            return SizedBox(
+              height: widget.maxHeight,
+              child: const Center(child: CircularProgressIndicator()),
+            );
+          }
           return const Padding(
             padding: EdgeInsets.all(16),
             child: LinearProgressIndicator(),
@@ -218,18 +242,59 @@ class _LocalImageState extends State<_LocalImage> {
     );
   }
 
-  Widget _image(ImageProvider provider) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 12),
-    child: ClipRRect(
+  Widget _image(ImageProvider provider) {
+    final image = ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Image(
         image: ResizeImage(provider, width: 1220, allowUpscaling: false),
         fit: BoxFit.contain,
-        height: 280,
+        height: widget.maxHeight,
         errorBuilder: (_, _, _) => _missing(),
       ),
-    ),
-  );
+    );
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: widget.zoom ? 4 : 12),
+      child: !widget.zoom
+          ? image
+          : Tooltip(
+              message: '放大图片',
+              child: Semantics(
+                button: true,
+                label: '放大图片',
+                child: GestureDetector(
+                  onTap: () => showDialog<void>(
+                    context: context,
+                    builder: (dialogContext) => Dialog.fullscreen(
+                      child: Scaffold(
+                        appBar: AppBar(
+                          title: const Text('查看图片'),
+                          leading: IconButton(
+                            tooltip: '关闭图片',
+                            icon: const Icon(Icons.close),
+                            onPressed: () => Navigator.pop(dialogContext),
+                          ),
+                        ),
+                        body: SafeArea(
+                          child: Center(
+                            child: InteractiveViewer(
+                              minScale: .5,
+                              maxScale: 5,
+                              child: Image(
+                                image: provider,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  child: image,
+                ),
+              ),
+            ),
+    );
+  }
 }
 
 class _AudioControl extends StatelessWidget {

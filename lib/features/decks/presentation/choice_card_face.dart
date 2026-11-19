@@ -11,6 +11,7 @@ import '../../../core/widgets/pressable_action.dart';
 import '../domain/choice_question.dart';
 import '../domain/choice_attempt.dart';
 import '../domain/note.dart';
+import 'adaptive_choice_viewport.dart';
 
 class ChoiceCardFace extends StatefulWidget {
   const ChoiceCardFace({
@@ -25,6 +26,9 @@ class ChoiceCardFace extends StatefulWidget {
     this.onSubmit,
     this.onReview,
     this.showExplanation = true,
+    this.adaptive = false,
+    this.onNext,
+    this.nextLabel = '下一张',
     this.draftImages = const {},
   });
   final ChoiceQuestion question;
@@ -37,6 +41,9 @@ class ChoiceCardFace extends StatefulWidget {
   final Future<void> Function(Set<int>)? onSubmit;
   final ValueChanged<ChoiceAttemptSnapshot>? onReview;
   final bool showExplanation;
+  final bool adaptive;
+  final FutureOr<void> Function()? onNext;
+  final String nextLabel;
   final Map<String, Uint8List> draftImages;
 
   @override
@@ -70,11 +77,15 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
     if (oldWidget.answerVisible && !widget.answerVisible) _prepare();
   }
 
-  Widget _content(String source) => CardContent(
+  Widget _content(String source, [ChoiceFitLayout? layout]) => CardContent(
     source: source,
     media: widget.media,
     audio: widget.audio,
     draftImages: widget.draftImages,
+    textScaler: layout?.textScaler,
+    lineHeight: layout == null ? 1.65 : 1.4,
+    imageMaxHeight: layout?.imageHeight ?? 280,
+    zoomImages: layout != null,
   );
 
   void _choose(int index) {
@@ -146,8 +157,199 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
       .toList()
       .sortedLetters();
 
+  Widget _compactOption(
+    BuildContext context,
+    int index,
+    int position,
+    ChoiceFitLayout layout,
+  ) {
+    final scheme = Theme.of(context).colorScheme;
+    final selected = _selected.contains(index);
+    final answer = widget.question.correctIndexes.contains(index);
+    final revealed = widget.answerVisible;
+    final tint = revealed && selected && !answer
+        ? scheme.error
+        : scheme.primary;
+    final emphasized = selected || revealed && answer;
+    return Semantics(
+      checked: selected,
+      inMutuallyExclusiveGroup: widget.question.type == NoteType.singleChoice,
+      enabled: widget.enabled && !revealed && !_submitting,
+      child: Material(
+        color: emphasized ? tint.withValues(alpha: .10) : scheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: emphasized ? tint : scheme.outlineVariant),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          key: ValueKey('choice-option-$index'),
+          onTap: widget.enabled && !revealed && !_submitting
+              ? () => _choose(index)
+              : null,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: layout.optionPadding,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ExcludeSemantics(
+                    child: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: selected ? tint : Colors.transparent,
+                        border: Border.all(
+                          color: emphasized ? tint : scheme.outline,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          widget.question.type == NoteType.singleChoice
+                              ? 28
+                              : 6,
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          String.fromCharCode(65 + position),
+                          style: TextStyle(
+                            color: selected
+                                ? (revealed && !answer
+                                      ? scheme.onError
+                                      : scheme.onPrimary)
+                                : scheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _content(widget.question.options[index], layout),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _adaptiveBody(BuildContext context) {
+    final question = widget.question;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: AdaptiveChoiceViewport(
+            key: const ValueKey('adaptive-choice-viewport'),
+            contentIdentity: Object.hashAll([
+              question.prompt,
+              ...question.options,
+              widget.answerVisible,
+            ]),
+            builder: (layout) => Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _content(question.prompt, layout),
+                SizedBox(height: layout.tight ? 10 : 16),
+                for (
+                  var position = 0;
+                  position < _order.length;
+                  position++
+                ) ...[
+                  _compactOption(context, _order[position], position, layout),
+                  if (position + 1 < _order.length)
+                    SizedBox(height: layout.gap),
+                ],
+                if (widget.answerVisible) ...[
+                  const SizedBox(height: 12),
+                  Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      !_attempted
+                          ? '未作答'
+                          : question.isCorrect(_selected)
+                          ? '回答正确'
+                          : '回答错误',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                  Text('正确答案：${_letters(question.correctIndexes)}'),
+                ],
+              ],
+            ),
+          ),
+        ),
+        Material(
+          key: const ValueKey('choice-fixed-actions'),
+          color: Theme.of(context).colorScheme.surface,
+          elevation: 3,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_submitError case final error?)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Semantics(
+                      liveRegion: true,
+                      child: Text(
+                        error,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
+                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: widget.enabled && !_submitting
+                            ? _review
+                            : null,
+                        child: const Text('查看解析', textAlign: TextAlign.center),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: PressableAction(
+                        label: widget.answerVisible
+                            ? widget.nextLabel
+                            : _submitting
+                            ? '正在保存…'
+                            : '提交答案',
+                        onPressed: !widget.enabled || _submitting
+                            ? null
+                            : widget.answerVisible
+                            ? widget.onNext
+                            : _selected.isEmpty
+                            ? null
+                            : _submit,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.adaptive) return _adaptiveBody(context);
     final question = widget.question;
     final scheme = Theme.of(context).colorScheme;
     final correct = question.isCorrect(_selected);

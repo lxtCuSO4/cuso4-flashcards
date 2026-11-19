@@ -116,6 +116,8 @@ void main() {
         MediaQuery.textScalerOf(tester.element(find.text('保存字号'))).scale(20),
         25,
       );
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
       container.read(appRouterProvider).go('/recitation/$deck');
       await tester.pumpAndSettle();
       expect(readingScale(tester, '阅读字号测试'), 30);

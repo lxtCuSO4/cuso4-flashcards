@@ -17,6 +17,7 @@ import '../../decks/domain/choice_attempt.dart';
 import '../data/practice_repository.dart';
 import 'practice_card_face.dart';
 import 'choice_explanation_page.dart';
+import 'choice_practice_scaffold.dart';
 
 class PracticePage extends ConsumerStatefulWidget {
   const PracticePage({
@@ -294,6 +295,19 @@ class _PracticePageState extends ConsumerState<PracticePage>
     }
   }
 
+  Future<void> _edit() async {
+    final item = _card;
+    if (_busy || item == null) return;
+    setState(() => _busy = true);
+    await _audio.stop();
+    if (!mounted) return;
+    try {
+      await context.push('/decks/${item.note.deckId}/edit/${item.note.id}');
+    } finally {
+      if (mounted) await _load();
+    }
+  }
+
   void _configure() {
     unawaited(_audio.stop());
     setState(() {
@@ -309,6 +323,33 @@ class _PracticePageState extends ConsumerState<PracticePage>
   @override
   Widget build(BuildContext context) {
     final round = _round;
+    final current = _card;
+    if (round != null &&
+        !_completed &&
+        current != null &&
+        current.note.type.isChoice) {
+      return ChoicePracticeScaffold(
+        title: _title,
+        item: current,
+        media: ref.read(mediaRepositoryProvider),
+        audio: _audio,
+        answerVisible: _answerVisible,
+        busy: _busy,
+        position: _index + 1,
+        total: round.cardIds.length,
+        place: widget.favoritesOnly
+            ? TouhouPlace.bookmarks
+            : TouhouPlace.bamboo,
+        onReveal: () => setState(() => _answerVisible = true),
+        onSubmit: _submitChoice,
+        onReview: (attempt) => unawaited(_openExplanation(attempt)),
+        onNext: _next,
+        nextLabel: _index + 1 == round.cardIds.length ? '完成本轮' : '下一张',
+        onFavorite: _favorite,
+        onEdit: _edit,
+        onSkip: () => _next(skip: true),
+      );
+    }
     final deckName =
         round?.deckName ??
         (widget.deckId == null ? '全部牌组' : null) ??
@@ -451,20 +492,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
                   ),
                   IconButton(
                     tooltip: '编辑卡片',
-                    onPressed: _busy
-                        ? null
-                        : () async {
-                            setState(() => _busy = true);
-                            await _audio.stop();
-                            if (!context.mounted) return;
-                            try {
-                              await context.push(
-                                '/decks/${item.note.deckId}/edit/${item.note.id}',
-                              );
-                            } finally {
-                              if (mounted) await _load();
-                            }
-                          },
+                    onPressed: _busy ? null : _edit,
                     icon: const Icon(Icons.edit_outlined),
                   ),
                 ],

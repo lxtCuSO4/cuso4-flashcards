@@ -108,6 +108,8 @@ void main() {
     await tester.tap(find.text('提交答案'));
     await tester.pumpAndSettle();
     expect(find.text('回答正确'), findsOneWidget);
+    await tester.tap(find.text('返回题目'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('重新作答'));
     await tester.tap(find.text('重新作答'));
     await tester.pumpAndSettle();

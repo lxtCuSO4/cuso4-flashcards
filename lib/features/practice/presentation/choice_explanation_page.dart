@@ -22,6 +22,7 @@ class ChoiceExplanationPage extends StatefulWidget {
     required this.deckName,
     required this.position,
     required this.total,
+    this.allowAdvance = true,
   });
   final ChoiceQuestion question;
   final ChoiceAttemptSnapshot attempt;
@@ -29,6 +30,7 @@ class ChoiceExplanationPage extends StatefulWidget {
   final String deckName;
   final int position;
   final int total;
+  final bool allowAdvance;
 
   @override
   State<ChoiceExplanationPage> createState() => _ChoiceExplanationPageState();
@@ -107,14 +109,17 @@ class _ChoiceExplanationPageState extends State<ChoiceExplanationPage>
                         child: const Text('返回题目', textAlign: TextAlign.center),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: PressableAction(
-                        key: const ValueKey('explanation-next'),
-                        label: widget.position == widget.total ? '完成本轮' : '下一题',
-                        onPressed: _leaving ? null : _next,
+                    if (widget.allowAdvance) const SizedBox(width: 12),
+                    if (widget.allowAdvance)
+                      Expanded(
+                        child: PressableAction(
+                          key: const ValueKey('explanation-next'),
+                          label: widget.position == widget.total
+                              ? '完成本轮'
+                              : '下一题',
+                          onPressed: _leaving ? null : _next,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),

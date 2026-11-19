@@ -1,6 +1,6 @@
 # Lunar Memory 开发进度（原 CuSO₄闪卡）
 
-更新日期：2026-11-16（Asia/Shanghai）。
+更新日期：2026-11-19（Asia/Shanghai）。
 
 ## 工作位置
 
@@ -10,6 +10,8 @@
 - 2026-10-15 用户已授权首次上传至 lxtCuSO4/cuso4-flashcards，范围为 logo 版 APK 对应的已完成功能源码及使用指南。PDF 制卡计划、样卡和讲义留在本地，不纳入本次上传。
 
 ## 当前阶段
+
+- [x] 1.1.2+5 选择题独立解析页：提交后自动打开，底部固定返回题目／下一题，原题目页按钮保留；判分、错题及选项顺序保持。实施和验收见 `docs/choice-explanation.md`、`docs/releases/2026-11-19-choice-explanation.md`。
 
 - [x] 1.1.1+4 选择题独立刷题：排程隔离，组内顺序／随机，错题答对自动移出，错题与收藏专项练习；数据库版本 2，兼容旧备份与导入中断恢复。用户指定 GitHub 发布版本为 `v1.1.1`，内部版本码 4，支持覆盖此前本地 1.2.0+3 试构建。详细记录见 `docs/choice-practice.md` 和 `docs/releases/2026-11-16-choice-practice.md`。
 

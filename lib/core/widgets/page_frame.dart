@@ -10,6 +10,7 @@ class PageFrame extends StatelessWidget {
     this.header,
     this.actions = const [],
     this.scrollController,
+    this.bottomBar,
   });
   final String title;
   final Widget? titleLeading;
@@ -18,6 +19,7 @@ class PageFrame extends StatelessWidget {
   final Widget child;
   final List<Widget> actions;
   final ScrollController? scrollController;
+  final Widget? bottomBar;
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -40,6 +42,7 @@ class PageFrame extends StatelessWidget {
             ),
       actions: actions,
     ),
+    bottomNavigationBar: bottomBar,
     body: SafeArea(
       top: false,
       child: Align(

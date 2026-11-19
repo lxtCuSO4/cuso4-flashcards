@@ -13,8 +13,10 @@ import '../../../core/widgets/touhou_tag.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../../study/domain/study_card.dart';
 import '../../decks/domain/choice_question.dart';
+import '../../decks/domain/choice_attempt.dart';
 import '../data/practice_repository.dart';
 import 'practice_card_face.dart';
+import 'choice_explanation_page.dart';
 
 class PracticePage extends ConsumerStatefulWidget {
   const PracticePage({
@@ -53,6 +55,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
   int _incorrect = 0;
   int _unanswered = 0;
   bool _choiceSubmitted = false;
+  bool _explanationOpen = false;
   late PracticeOrder _order;
 
   bool get _choiceMode => widget.choicesOnly || widget.wrongOnly;
@@ -230,6 +233,44 @@ class _PracticePageState extends ConsumerState<PracticePage>
       });
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _openExplanation(ChoiceAttemptSnapshot attempt) async {
+    final item = _card;
+    if (_busy || _explanationOpen || item == null || !item.note.type.isChoice) {
+      return;
+    }
+    _explanationOpen = true;
+    try {
+      await _audio.stop();
+      if (!mounted) return;
+      final position = _index + 1;
+      final total = _round!.cardIds.length;
+      final media = ref.read(mediaRepositoryProvider);
+      final advance = await Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          settings: const RouteSettings(name: 'choice-explanation'),
+          builder: (_) => ChoiceExplanationPage(
+            question: ChoiceQuestion.fromFields(
+              item.note.type,
+              item.note.fields,
+            ),
+            attempt: attempt,
+            media: media,
+            deckName: item.deckName,
+            position: position,
+            total: total,
+          ),
+        ),
+      );
+      if (advance == true && mounted && _card?.card.id == item.card.id) {
+        await _next();
+      }
+    } catch (error) {
+      if (mounted) showActionError(context, error);
+    } finally {
+      _explanationOpen = false;
     }
   }
 
@@ -438,6 +479,7 @@ class _PracticePageState extends ConsumerState<PracticePage>
                     ? null
                     : () => setState(() => _answerVisible = true),
                 onSubmit: _submitChoice,
+                onReview: (attempt) => unawaited(_openExplanation(attempt)),
               ),
               const SizedBox(height: 24),
               if (!_answerVisible && !item.note.type.isChoice)

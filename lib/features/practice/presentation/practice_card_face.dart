@@ -5,6 +5,7 @@ import '../../../core/media/local_audio_controller.dart';
 import '../../../core/media/media_repository.dart';
 import '../../decks/domain/cloze_parser.dart';
 import '../../decks/domain/choice_question.dart';
+import '../../decks/domain/choice_attempt.dart';
 import '../../decks/domain/note.dart';
 import '../../decks/presentation/choice_card_face.dart';
 import '../../study/domain/study_card.dart';
@@ -18,6 +19,7 @@ class PracticeCardFace extends StatelessWidget {
     required this.audio,
     this.onReveal,
     this.onSubmit,
+    this.onReview,
   });
   final StudyCard item;
   final bool answerVisible;
@@ -25,6 +27,7 @@ class PracticeCardFace extends StatelessWidget {
   final LocalAudioController audio;
   final VoidCallback? onReveal;
   final Future<void> Function(Set<int>)? onSubmit;
+  final ValueChanged<ChoiceAttemptSnapshot>? onReview;
 
   Widget _content(String source) =>
       CardContent(source: source, media: media, audio: audio);
@@ -49,6 +52,8 @@ class PracticeCardFace extends StatelessWidget {
                 enabled: onReveal != null,
                 onReveal: onReveal ?? () {},
                 onSubmit: onSubmit,
+                onReview: onReview,
+                showExplanation: onReview == null,
               ),
             ),
           ),

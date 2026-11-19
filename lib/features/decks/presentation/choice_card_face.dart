@@ -9,6 +9,7 @@ import '../../../core/media/local_audio_controller.dart';
 import '../../../core/media/media_repository.dart';
 import '../../../core/widgets/pressable_action.dart';
 import '../domain/choice_question.dart';
+import '../domain/choice_attempt.dart';
 import '../domain/note.dart';
 
 class ChoiceCardFace extends StatefulWidget {
@@ -22,6 +23,8 @@ class ChoiceCardFace extends StatefulWidget {
     this.enabled = true,
     this.readingOnly = false,
     this.onSubmit,
+    this.onReview,
+    this.showExplanation = true,
     this.draftImages = const {},
   });
   final ChoiceQuestion question;
@@ -32,6 +35,8 @@ class ChoiceCardFace extends StatefulWidget {
   final bool enabled;
   final bool readingOnly;
   final Future<void> Function(Set<int>)? onSubmit;
+  final ValueChanged<ChoiceAttemptSnapshot>? onReview;
+  final bool showExplanation;
   final Map<String, Uint8List> draftImages;
 
   @override
@@ -97,11 +102,16 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
       _submitting = true;
       _submitError = null;
     });
+    // The parent disables controls while saving; keep the original callbacks
+    // so that rebuild cannot replace a successful reveal with a disabled no-op.
+    final reveal = widget.onReveal;
+    final review = widget.onReview;
     try {
       await widget.onSubmit?.call(Set.unmodifiable(_selected));
       if (!mounted) return;
       setState(() => _attempted = true);
-      widget.onReveal();
+      reveal();
+      review?.call(_snapshot());
     } catch (error) {
       if (mounted) {
         setState(
@@ -113,6 +123,22 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  ChoiceAttemptSnapshot _snapshot() => ChoiceAttemptSnapshot(
+    selected: _selected,
+    order: _order,
+    attempted: _attempted,
+  );
+
+  void _review() {
+    if (!widget.enabled || _submitting) return;
+    unawaited(FeedbackScope.of(context).tap());
+    if (!widget.answerVisible) {
+      setState(() => _attempted = false);
+      widget.onReveal();
+    }
+    widget.onReview?.call(_snapshot());
   }
 
   String _letters(Iterable<int> indexes) => indexes
@@ -259,14 +285,8 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
               ),
             ),
           TextButton(
-            onPressed: !widget.enabled || _submitting
-                ? null
-                : () {
-                    unawaited(FeedbackScope.of(context).tap());
-                    setState(() => _attempted = false);
-                    widget.onReveal();
-                  },
-            child: const Text('直接看答案'),
+            onPressed: !widget.enabled || _submitting ? null : _review,
+            child: Text(widget.onReview == null ? '直接看答案' : '查看解析'),
           ),
         ] else ...[
           const Divider(height: 32),
@@ -297,12 +317,17 @@ class _ChoiceCardFaceState extends State<ChoiceCardFace> {
                 '漏选：${_letters(question.correctIndexes.difference(_selected))}',
               ),
           ],
-          if (question.explanation.isNotEmpty) ...[
+          if (widget.showExplanation && question.explanation.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text('解析', style: Theme.of(context).textTheme.labelLarge),
             const SizedBox(height: 8),
             _content(question.explanation),
           ],
+          if (widget.onReview != null)
+            TextButton(
+              onPressed: widget.enabled && !_submitting ? _review : null,
+              child: const Text('查看解析'),
+            ),
         ],
       ],
     );

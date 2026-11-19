@@ -210,7 +210,7 @@ void main() {
     await tap(tester, '完成本轮');
     await tap(tester, '再练一轮');
     expect(find.text('回答正确'), findsNothing);
-    await tap(tester, '直接看答案');
+    await tap(tester, '查看解析');
     expect(find.text('未作答'), findsOneWidget);
     expect(await tester.runAsync(snapshot), before);
     await close(tester);
@@ -294,7 +294,7 @@ void main() {
       await tester.pumpAndSettle();
       await tap(tester, '开始顺序练习');
       expect(find.text('第 1 / 1 张'), findsOneWidget);
-      await tap(tester, '直接看答案');
+      await tap(tester, '查看解析');
       expect(find.text('未作答'), findsOneWidget);
       expect(
         (await tester.runAsync(() => db.select(db.wrongQuestions).get()))!,
